@@ -1,0 +1,62 @@
+# Timing consistency
+- ros_topic_name: '/clock'
+  gz_topic_name: '/clock'
+  ros_type_name: 'rosgraph_msgs/msg/Clock'
+  gz_type_name: 'gz.msgs.Clock'
+  direction: GZ_TO_ROS
+
+# Position of joints [ie. wheels] (published by ignition::gazebo::systems::JointStatePublisher)
+- ros_topic_name: '/joint_states'
+  gz_topic_name: '/model/mars_explorer/joint_states'
+  ros_type_name: 'sensor_msgs/msg/JointState'
+  gz_type_name: 'ignition.msgs.Model'
+  direction: GZ_TO_ROS
+
+# Odometry (published by ignition::gazebo::systems::OdometryPublisher)
+- ros_topic_name: '/odometry'
+  gz_topic_name: '/model/mars_explorer/odometry'
+  ros_type_name: 'nav_msgs/msg/Odometry'
+  gz_type_name: 'ignition.msgs.Odometry'
+  direction: GZ_TO_ROS
+
+# Intertial Measurement Unit
+- ros_topic_name: '/imu'
+  gz_topic_name: '/model/mars_explorer/imu'
+  ros_type_name: 'sensor_msgs/msg/Imu'
+  gz_type_name: 'ignition.msgs.IMU'
+  direction: GZ_TO_ROS
+
+# Command velocity
+- ros_topic_name: '/cmd_vel'
+  gz_topic_name: '/model/mars_explorer/cmd_vel'
+  ros_type_name: 'geometry_msgs/msg/Twist'
+  gz_type_name: 'ignition.msgs.Twist'
+  direction: ROS_TO_GZ
+
+# Lidar: laserscan
+- ros_topic_name: "/scan"
+  gz_topic_name: "/model/mars_explorer/scan"
+  ros_type_name: "sensor_msgs/msg/LaserScan"
+  gz_type_name: "gz.msgs.LaserScan"
+  direction: GZ_TO_ROS
+
+# Lidar: pointcloud
+- ros_topic_name: "/scan/points"
+  gz_topic_name: "/model/mars_explorer/scan/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  direction: GZ_TO_ROS
+
+# Camera: RGB
+- ros_topic_name: "/camera/image"
+  gz_topic_name: "/model/mars_explorer/camera/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "ignition.msgs.Image"
+  direction: GZ_TO_ROS
+
+# Camera: depth
+- ros_topic_name: "/camera/depth/image"
+  gz_topic_name: "/model/mars_explorer/camera/depth_image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "ignition.msgs.Image"
+  direction: GZ_TO_ROS

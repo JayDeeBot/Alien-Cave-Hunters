@@ -1,0 +1,385 @@
+<?xml version="1.0"?>
+<sdf version='1.8'>
+  <!--Generated from custom python script-->
+  <world name="mars_cave">
+    <plugin name='ignition::gazebo::systems::Physics' filename='ignition-gazebo-physics-system' />
+    <plugin name='ignition::gazebo::systems::UserCommands' filename='ignition-gazebo-user-commands-system' />
+    <plugin name='ignition::gazebo::systems::SceneBroadcaster' filename='ignition-gazebo-scene-broadcaster-system' />
+    <plugin name='ignition::gazebo::systems::Contact' filename='ignition-gazebo-contact-system' />
+    <light name="sun" type="directional">
+      <cast_shadows>1</cast_shadows>
+      <pose>0 0 5 0 -0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+    <gravity>0 0 -3.71</gravity>
+    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <atmosphere type="adiabatic"/>
+    <physics name="default_physics" type="ignored">
+      <max_step_size>0.01</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>100</real_time_update_rate>
+    </physics>
+    <scene>
+      <ambient>0.78 0.78 0.78 1</ambient>
+      <background>0.31 0.19 0.04 1</background>
+      <shadows>1</shadows>
+    </scene>
+    <model name="ground_plane">
+      <static>1</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>50 50</size>
+            </plane>
+          </geometry>
+          <surface>
+            <friction>
+              <ode />
+            </friction>
+            <bounce />
+            <contact />
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>50 50 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <!-- <script>
+              <uri>package://cave_explorer/worlds/models/mars_plane/materials/scripts</uri>
+              <uri>package://cave_explorer/worlds/models/mars_plane/materials/textures</uri>
+              <name>vrc/mars</name>
+            </script> -->
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/mars_terrain1.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+      </link>
+      <pose>0 0 0 0 0 0</pose>
+    </model>
+    <model name="border_1">
+      <pose>0 25 2.0 0 0 0</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>50 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>50 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <!-- <script>
+              <uri>model://walls/materials/scripts</uri>
+              <uri>model://walls/materials/textures</uri>
+              <name>mars/wall13</name>
+            </script> -->
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="border_2">
+      <pose>0 -25 2.0 0 0 0</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>50 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>50 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <!-- <script>
+              <uri>model://walls/materials/scripts</uri>
+              <uri>model://walls/materials/textures</uri>
+              <name>mars/wall13</name>
+            </script> -->
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="border_3">
+      <pose>25 0 2.0 0 0 1.5707963267948966</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>50 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>50 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <!-- <script>
+              <uri>model://walls/materials/scripts</uri>
+              <uri>model://walls/materials/textures</uri>
+              <name>mars/wall13</name>
+            </script> -->
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="border_4">
+      <pose>-25 0 2.0 0 0 1.5707963267948966</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>50 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>50 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <!-- <script>
+              <uri>model://walls/materials/scripts</uri>
+              <uri>model://walls/materials/textures</uri>
+              <name>mars/wall13</name>
+            </script> -->
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_96">
+      <pose>14.45 7.05 2.0 0 0 0.3217505543966422</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.743416490252569 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.743416490252569 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <!-- <script>
+              <uri>model://walls/materials/scripts</uri>
+              <uri>model://walls/materials/textures</uri>
+              <name>mars/wall13</name>
+            </script> -->
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_97">
+      <pose>13.35 4.7 2.0 0 0 2.193995656728963</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4 3.9408120990476063 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4 3.9408120990476063 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <!-- <script>
+              <uri>model://walls/materials/scripts</uri>
+              <uri>model://walls/materials/textures</uri>
+              <name>mars/wall13</name>
+            </script> -->
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 1.5707963267948966 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_98">
+      <pose>16.35 4.7 2.0 0 0 -2.4285318207309396</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.891829923454003 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.891829923454003 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <!-- <script>
+              <uri>model://walls/materials/scripts</uri>
+              <uri>model://walls/materials/textures</uri>
+              <name>mars/wall13</name>
+            </script> -->
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_99">
+      <pose>17.45 7.05 2.0 0 0 -0.7853981633974483</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>2.1213203435596424 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>2.1213203435596424 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <!-- <script>
+              <uri>model://walls/materials/scripts</uri>
+              <uri>model://walls/materials/textures</uri>
+              <name>mars/wall13</name>
+            </script> -->
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+  </world>
+</sdf>

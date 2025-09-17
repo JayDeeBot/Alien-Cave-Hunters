@@ -1,0 +1,5 @@
+for szFile in *.png
+do 
+    convert "$szFile" -rotate -90 tmp/"$(basename "$szFile")" ; 
+done
+

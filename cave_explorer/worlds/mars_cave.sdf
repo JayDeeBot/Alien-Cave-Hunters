@@ -1,0 +1,3851 @@
+<?xml version="1.0"?>
+<sdf version='1.8'>
+  <!--Generated from custom python script-->
+  <world name="mars_cave">
+    <plugin name='ignition::gazebo::systems::Physics' filename='ignition-gazebo-physics-system' />
+    <plugin name='ignition::gazebo::systems::UserCommands' filename='ignition-gazebo-user-commands-system' />
+    <plugin name='ignition::gazebo::systems::SceneBroadcaster' filename='ignition-gazebo-scene-broadcaster-system' />
+    <plugin name='ignition::gazebo::systems::Contact' filename='ignition-gazebo-contact-system' />
+    <light name="sun1" type="directional">
+      <cast_shadows>0</cast_shadows>
+      <pose>0 0 100 0 -0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.8 0.8 0.8 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+      <intensity>1</intensity>
+    </light>
+    <light name="sun2" type="directional">
+      <cast_shadows>0</cast_shadows>
+      <pose>0 0 100 0 -0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.8 0.8 0.8 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>0.5 0.1 -0.9</direction>
+      <intensity>1</intensity>
+    </light>
+    <light name="sun3" type="directional">
+      <cast_shadows>0</cast_shadows>
+      <pose>0 0 100 0 -0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.8 0.8 0.8 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>0 0.5 -0.9</direction>
+      <intensity>1</intensity>
+    </light>
+    <light name="sun4" type="directional">
+      <cast_shadows>0</cast_shadows>
+      <pose>0 0 100 0 -0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.8 0.8 0.8 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>0 -0.5 -0.9</direction>
+      <intensity>1</intensity>
+    </light>
+    <gravity>0 0 -3.71</gravity>
+    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <atmosphere type="adiabatic"/>
+    <physics name="default_physics" type="ignored">
+      <max_step_size>0.01</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>100</real_time_update_rate>
+    </physics>
+    <scene>
+      <ambient>1.0 1.0 1.0 1</ambient>
+      <background>0.31 0.19 0.04 1</background>
+      <shadows>0</shadows>
+      <grid>0</grid>
+    </scene>
+    <model name="ground_plane">
+      <static>1</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <normal>0 0 1</normal>
+              <size>75 75 0.01</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode />
+            </friction>
+            <bounce />
+            <contact />
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+                <normal>0 0 1</normal>
+                <size>75 75</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/mars_terrain1.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+      </link>
+      <pose>25 25 0 0 -0 0</pose>
+    </model>
+    <model name="wall_0">
+      <pose>57.35 38.7 2.0 0 0 1.4817467441603989</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.62227711874824 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.62227711874824 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall01.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_1">
+      <pose>56.150000000000006 33.5 2.0 0 0 1.1938870564700756</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.16236379965612 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.16236379965612 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall01.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_2">
+      <pose>52.35 30.8 2.0 0 0 0.10487693873023408</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.731491952362843 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.731491952362843 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall01.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_3">
+      <pose>48.5 28.35 2.0 0 0 1.1354430516425942</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.742362280551751 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.742362280551751 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall01.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_4">
+      <pose>44.55 25.95 2.0 0 0 0.08454375551299816</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.921148537234983 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.921148537234983 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall01.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_5">
+      <pose>38.900000000000006 25.35 2.0 0 0 0.12891077168399134</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.445181356024791 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.445181356024791 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall01.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_6">
+      <pose>38.45 24.1 2.0 0 0 2.761086276477428</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.846648326421054 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.846648326421054 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall01.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_7">
+      <pose>42.7 21.9 2.0 0 0 2.56521743299861</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.7707441767506245 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.7707441767506245 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall01.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_8">
+      <pose>45.55 18.200000000000003 2.0 0 0 1.9111782654368028</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4 5.0921508225896055 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4 5.0921508225896055 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/stop_sign.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 1.5707963267948966 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_9">
+      <pose>48.349999999999994 14.65 2.0 0 0 2.6087487659704043</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.527692569068708 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.527692569068708 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall02.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_10">
+      <pose>50.849999999999994 10.85 2.0 0 0 1.7754381366246748</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.412947441089744 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.412947441089744 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall02.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_11">
+      <pose>52.849999999999994 6.25 2.0 0 0 2.210182232481069</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.8600411520891456 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.8600411520891456 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall02.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_12">
+      <pose>52.099999999999994 3.3 2.0 0 0 0.4266274931268762</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.833218389437827 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.833218389437827 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall02.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_13">
+      <pose>46.95 2.15 2.0 0 0 0.050803704058221634</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.907622195096771 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.907622195096771 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall02.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_14">
+      <pose>40.95 2.05 2.0 0 0 -0.016391974308005278</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>6.100819617067859 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>6.100819617067859 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall02.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_15">
+      <pose>35.349999999999994 1.5 2.0 0 0 0.23109066719589705</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.239274758971896 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.239274758971896 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall02.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_16">
+      <pose>30.75 -0.39999999999999997 2.0 0 0 0.5651494400067596</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.85489443757534 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.85489443757534 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall03.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_17">
+      <pose>26.0 -1.75 2.0 0 0 0.018516402068009065</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.4009258465563095 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.4009258465563095 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall03.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_18">
+      <pose>20.700000000000003 -1.4500000000000002 2.0 0 0 -0.13381097747459078</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.246903848937961 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.246903848937961 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall03.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_19">
+      <pose>15.100000000000001 -1.15 2.0 0 0 0.016665123713940723</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>6.000833275471001 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>6.000833275471001 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall03.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_20">
+      <pose>9.2 -1.7000000000000002 2.0 0 0 0.17073521147528284</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.885575587824865 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.885575587824865 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall03.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_21">
+      <pose>3.25 -2.4000000000000004 2.0 0 0 0.0654800249234648</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>6.113100686231169 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>6.113100686231169 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall03.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_22">
+      <pose>-2.85 -2.6 2.0 0 0 0.0</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>6.1000000000000005 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>6.1000000000000005 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall03.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_23">
+      <pose>-6.5 -0.55 2.0 0 0 -1.2860658882721845</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.272001872658765 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.272001872658765 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall03.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_24">
+      <pose>-4.45 2.05 2.0 0 0 -2.936950843760015</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.412947441089743 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.412947441089743 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall04.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_25">
+      <pose>0.7999999999999999 2.45 2.0 0 0 3.083964226112319</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.208646657242167 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.208646657242167 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall04.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_26">
+      <pose>4.2 4.449999999999999 2.0 0 0 -1.9270159821910469</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.588027898781784 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.588027898781784 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall04.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_27">
+      <pose>7.65 6.75 2.0 0 0 -3.085049216644976</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.3084837759948 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.3084837759948 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall04.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_28">
+      <pose>11.95 5.4 2.0 0 0 2.403777593469328</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.459820624195551 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.459820624195551 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall04.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_29">
+      <pose>13.6 5.45 2.0 0 0 -1.5707963267948966</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.1 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.1 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall04.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_30">
+      <pose>11.649999999999999 8.55 2.0 0 0 -0.6716061562537401</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.98196748283246 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.98196748283246 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall04.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_31">
+      <pose>7.5 11.149999999999999 2.0 0 0 -0.4453010438876858</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.875448697299562 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.875448697299562 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall04.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_32">
+      <pose>3.3 13.399999999999999 2.0 0 0 -0.5404195002705843</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.664761515876241 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.664761515876241 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall05.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_33">
+      <pose>-0.9999999999999999 15.600000000000001 2.0 0 0 -0.41012734054149136</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.015974481593782 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.015974481593782 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall05.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_34">
+      <pose>-4.05 19.55 2.0 0 0 -1.3218336210021795</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>6.087692502089768 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>6.087692502089768 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall05.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_35">
+      <pose>-3.05 22.05 2.0 0 0 2.889902681831607</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.61386219991853 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.61386219991853 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall05.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_36">
+      <pose>0.15000000000000002 22.85 2.0 0 0 -2.4301335278502854</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.8288379438153295 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.8288379438153295 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall05.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_37">
+      <pose>3.0999999999999996 23.65 2.0 0 0 2.8501358591119255</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.132091952673165 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.132091952673165 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall05.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_38">
+      <pose>4.949999999999999 24.95 2.0 0 0 -1.7681918866447774</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.5693136595149495 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.5693136595149495 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall05.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_39">
+      <pose>2.55 27.049999999999997 2.0 0 0 -0.12659212727997193</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.544366510251645 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.544366510251645 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall05.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_40">
+      <pose>-2.75 28.0 2.0 0 0 -0.23109066719589763</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.239274758971895 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.239274758971895 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall06.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_41">
+      <pose>-5.55 30.05 2.0 0 0 -1.4000611153196136</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>2.942787793912431 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>2.942787793912431 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall06.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_42">
+      <pose>-4.75 33.05 2.0 0 0 -2.166206202273629</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.744329045369812 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.744329045369812 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall06.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_43">
+      <pose>-4.75 36.85 2.0 0 0 -1.1341691669813554</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.965883607174054 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.965883607174054 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall06.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_44">
+      <pose>-5.15 41.55 2.0 0 0 -1.8301280711955814</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.0695167422546294 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.0695167422546294 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall06.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_45">
+      <pose>-2.7 43.35 2.0 0 0 2.795053789155852</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.8275318418009268 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.8275318418009268 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall06.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_46">
+      <pose>0.6500000000000001 41.05 2.0 0 0 2.3249546567620762</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.527692569068711 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.527692569068711 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall06.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_47">
+      <pose>4.0 38.8 2.0 0 0 2.819842099193152</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.7947331922020537 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.7947331922020537 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall06.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_48">
+      <pose>7.949999999999999 39.35 2.0 0 0 -2.6504290553035332</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4 4.876474136094642 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4 4.876474136094642 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/stop_sign.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 1.5707963267948966 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_49">
+      <pose>12.45 41.55 2.0 0 0 -2.7213959399805177</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.147815070493502 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.147815070493502 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall07.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_50">
+      <pose>17.5 42.05 2.0 0 0 2.940638389901696</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.510898293381941 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.510898293381941 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall07.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_51">
+      <pose>22.85 41.25 2.0 0 0 3.047531418961807</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.323532661682466 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.323532661682466 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall07.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_52">
+      <pose>24.75 39.4 2.0 0 0 1.1324597669369392</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.534119409414461 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.534119409414461 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall07.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_53">
+      <pose>22.15 36.25 2.0 0 0 0.6973907898697067</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.827007354458864 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.827007354458864 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall07.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_54">
+      <pose>17.4 34.55 2.0 0 0 0.051678084482430726</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.807753438292642 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.807753438292642 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall07.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_55">
+      <pose>11.9 33.95 2.0 0 0 0.17137912638950742</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.2773099207835035 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.2773099207835035 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall07.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_56">
+      <pose>10.5 31.8 2.0 0 0 2.185459278717062</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.16173040933696 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.16173040933696 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall08.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_57">
+      <pose>14.15 30.0 2.0 0 0 3.1007989707219275</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.9040799340956935 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.9040799340956935 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall08.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_58">
+      <pose>19.1 29.299999999999997 2.0 0 0 2.90604767286893</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.141984052872976 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.141984052872976 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall08.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_59">
+      <pose>23.200000000000003 27.85 2.0 0 0 2.6532587025333876</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.6235341863986865 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.6235341863986865 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall08.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_60">
+      <pose>26.25 28.55 2.0 0 0 -2.322873494314097</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.244997055358225 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.244997055358225 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall08.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_61">
+      <pose>29.25 28.35 2.0 0 0 2.295662470410238</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4 4.675467891024384 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4 4.675467891024384 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/stop_sign.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 1.5707963267948966 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_62">
+      <pose>31.35 29.35 2.0 0 0 -1.768191886644777</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.608921464952063 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.608921464952063 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall08.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_63">
+      <pose>31.75 35.0 2.0 0 0 -1.5191182423124672</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.807753438292639 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.807753438292639 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall08.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_64">
+      <pose>31.15 40.65 2.0 0 0 -1.408597493331514</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.573149917237109 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.573149917237109 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall09.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_65">
+      <pose>31.9 45.45 2.0 0 0 -2.100385925576973</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.750789408087884 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.750789408087884 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall09.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_66">
+      <pose>35.8 47.85 2.0 0 0 -3.0126818819058014</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.445181356024792 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.445181356024792 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall09.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_67">
+      <pose>41.4 48.0 2.0 0 0 3.072736164288748</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.81377674149945 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.81377674149945 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall09.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_68">
+      <pose>47.3 47.9 2.0 0 0 -3.1082716577115455</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>6.003332407921453 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>6.003332407921453 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall09.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_69">
+      <pose>52.7 47.15 2.0 0 0 2.801210714947886</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4 5.092150822589611 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4 5.092150822589611 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/stop_sign.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 1.5707963267948966 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_70">
+      <pose>56.25 44.2 2.0 0 0 2.071809713598486</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.7885279575251465 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.7885279575251465 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall09.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_71">
+      <pose>57.5 41.8 2.0 0 0 1.8925468811915425</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>0.6324555320336781 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>0.6324555320336781 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall09.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_72">
+      <pose>47.400000000000006 39.95 2.0 0 0 1.457004319651189</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.522782990761707 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.522782990761707 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall10.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_73">
+      <pose>45.85 36.45 2.0 0 0 0.9137213910832426</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.420407221060071 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.420407221060071 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall10.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_74">
+      <pose>42.45 32.5 2.0 0 0 0.8206776369910397</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>6.01414998150196 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>6.01414998150196 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall10.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_75">
+      <pose>40.099999999999994 31.9 2.0 0 0 -1.3854483767992014</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.2557641192199407 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.2557641192199407 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall10.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_76">
+      <pose>39.5 35.8 2.0 0 0 -1.4410937896389857</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.6389654018972815 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.6389654018972815 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall10.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_77">
+      <pose>40.900000000000006 39.75 2.0 0 0 -2.37111875518243</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.73814309619285 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.73814309619285 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall10.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_78">
+      <pose>45.1 41.55 2.0 0 0 -3.0816644984685846</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.008991914547278 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.008991914547278 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall10.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <!-- wall_79 had 0 thickness??? -->
+    <model name="wall_80">
+      <pose>35.15 17.3 2.0 0 0 2.8484057570319106</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.536244214266562 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.536244214266562 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall11.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_81">
+      <pose>39.15 14.35 2.0 0 0 2.1314833217777025</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.077400909914444 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.077400909914444 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall11.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_82">
+      <pose>38.6 10.85 2.0 0 0 0.6177557255662328</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.661544808322663 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.661544808322663 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall11.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_83">
+      <pose>34.2 9.5 2.0 0 0 0.0</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.0000000000000036 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.0000000000000036 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall11.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_84">
+      <pose>31.549999999999997 11.5 2.0 0 0 -1.4959364790841296</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.011234224026316 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.011234224026316 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall11.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_85">
+      <pose>31.95 15.8 2.0 0 0 -1.8055189392800939</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.729693436154189 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.729693436154189 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall11.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_86">
+      <pose>26.549999999999997 19.3 2.0 0 0 1.6456561745056637</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.011234224026316 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.011234224026316 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall11.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_87">
+      <pose>25.35 15.3 2.0 0 0 0.9770466600841256</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.825971404805461 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.825971404805461 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall11.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_88">
+      <pose>21.85 12.2 2.0 0 0 0.4729066036629293</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.83011387029333 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.83011387029333 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall12.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_89">
+      <pose>17.4 12.35 2.0 0 0 -0.49782233261700126</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.235456045083369 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.235456045083369 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall12.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_90">
+      <pose>12.8 14.6 2.0 0 0 -0.410127340541491</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.015974481593781 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.015974481593781 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall12.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_91">
+      <pose>9.45 17.25 2.0 0 0 -1.0040671092713902</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.9115214431215883 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.9115214431215883 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall12.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_92">
+      <pose>10.65 20.1 2.0 0 0 -2.6516353273360647</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.100000000000001 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.100000000000001 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall12.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_93">
+      <pose>15.3 20.450000000000003 2.0 0 0 2.8012107149478864</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.092150822589605 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.092150822589605 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall12.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_94">
+      <pose>20.35 20.0 2.0 0 0 -2.9917801970168965</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>5.360037313302959 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>5.360037313302959 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall12.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_95">
+      <pose>24.7 20.85 2.0 0 0 -2.882821761626095</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.517101079013794 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.517101079013794 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall12.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_96">
+      <pose>24.45 7.05 2.0 0 0 0.3217505543966422</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.743416490252569 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.743416490252569 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_97">
+      <pose>23.35 4.7 2.0 0 0 2.193995656728963</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4 3.9408120990476063 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4 3.9408120990476063 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/stop_sign.jpg
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 1.5707963267948966 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_98">
+      <pose>26.35 4.7 2.0 0 0 -2.4285318207309396</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.891829923454003 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.891829923454003 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_99">
+      <pose>27.45 7.05 2.0 0 0 -0.7853981633974483</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>2.1213203435596424 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>2.1213203435596424 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_100">
+      <pose>44.25 5.75 2.0 0 0 2.9996955989856295</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.949747468305838 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.949747468305838 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_101">
+      <pose>46.55 7.5 2.0 0 0 -1.4994888620096052</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>4.21070065428546 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>4.21070065428546 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_102">
+      <pose>44.849999999999994 8.45 2.0 0 0 0.6383198080090455</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>3.8600518131237576 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>3.8600518131237576 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="wall_103">
+      <pose>42.55 6.699999999999999 2.0 0 0 0.6747409422235527</pose>
+      <link name="Wall_0">
+        <collision name="Wall_0_Collision">
+          <geometry>
+            <box>
+              <size>1.9209372712298547 4 0.1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="Wall_0_Visual">
+          <geometry>
+            <box>
+              <size>1.9209372712298547 4 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>
+                  package://cave_explorer/worlds/textures/wall13.png
+                </albedo_map>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+        <pose>0 0 0 1.5707963267948966 0 0</pose>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_0">
+      <pose>-5.4 -0.3 0.2 1.5707963267948966 0 1.5707963267948966</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>1.5 1.5 1.5</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/green_alien/green_alien.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>1.5 1.5 1.5</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/green_alien/green_alien.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_1">
+      <pose>8.2 5.2 -0.2 1.5707963267948966 0 0</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>0.07 0.07 0.07</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/green_crystals_game_ready_asset/green_crystals_game_ready_asset.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>0.07 0.07 0.07</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/green_crystals_game_ready_asset/green_crystals_game_ready_asset.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_2">
+      <pose>52.0 5.4 0.8 1.5707963267948966 0 0</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>0.08 0.08 0.08</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/white_sphere/white_sphere.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>0.08 0.08 0.08</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/white_sphere/white_sphere.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_3">
+      <pose >33.7 10.6 0.6000000000000001 1.5707963267948966 0 0</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>0.8 0.8 0.8</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/ice_castles_ny__ice_formations/ice_castles_ny__ice_formations.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>0.8 0.8 0.8</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/ice_castles_ny__ice_formations/ice_castles_ny__ice_formations.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_4">
+      <pose>20.0 10.2 0.8 1.5707963267948966 0 0</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>7.0 7.0 7.0</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/mushrooms_blue/mushrooms_blue.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>7.0 7.0 7.0</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/mushrooms_blue/mushrooms_blue.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_5">
+      <pose>19.1 20.8 0.2 1.5707963267948966 0 3.141592653589793</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>1.5 1.5 1.5</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/green_alien/green_alien.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>1.5 1.5 1.5</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/green_alien/green_alien.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_6">
+      <pose>-3.3 21.4 -0.2 1.5707963267948966 0 0</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>0.07 0.07 0.07</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/green_crystals_game_ready_asset/green_crystals_game_ready_asset.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>0.07 0.07 0.07</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/green_crystals_game_ready_asset/green_crystals_game_ready_asset.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_7">
+      <pose>2.9 23.3 0.8 1.5707963267948966 0 0</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>0.08 0.08 0.08</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/white_sphere/white_sphere.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>0.08 0.08 0.08</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/white_sphere/white_sphere.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_8">
+      <pose>18.0 30.2 0.6000000000000001 1.5707963267948966 0 -1.5707963267948966</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>0.8 0.8 0.8</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/ice_castles_ny__ice_formations/ice_castles_ny__ice_formations.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>0.8 0.8 0.8</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/ice_castles_ny__ice_formations/ice_castles_ny__ice_formations.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_9">
+      <pose>-4.7 30.2 0.8 1.5707963267948966 0 0</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>7.0 7.0 7.0</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/mushrooms_blue/mushrooms_blue.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>7.0 7.0 7.0</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/mushrooms_blue/mushrooms_blue.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_10">
+      <pose>54.4 32.7 0.2 1.5707963267948966 0 3.141592653589793</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>1.5 1.5 1.5</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/green_alien/green_alien.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>1.5 1.5 1.5</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/green_alien/green_alien.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_11">
+      <pose>19.8 35.8 -0.4 1.5707963267948966 0 0</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>0.07 0.07 0.07</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/green_crystals_game_ready_asset/green_crystals_game_ready_asset.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>0.07 0.07 0.07</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/green_crystals_game_ready_asset/green_crystals_game_ready_asset.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_12">
+      <pose>46.7 35.9 0.8 1.5707963267948966 0 0</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>0.08 0.08 0.08</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/white_sphere/white_sphere.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>0.08 0.08 0.08</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/white_sphere/white_sphere.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_13">
+      <pose>-4.0 39.0 0.6000000000000001 1.5707963267948966 0 0</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>0.8 0.8 0.8</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/ice_castles_ny__ice_formations/ice_castles_ny__ice_formations.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>0.8 0.8 0.8</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/ice_castles_ny__ice_formations/ice_castles_ny__ice_formations.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+    <model name="artifact_14">
+      <pose>33.5 45.9 0.8 1.5707963267948966 0 0</pose>
+      <link name="artifact_0">
+        <visual name="artifact_0_Visual">
+          <geometry>
+            <mesh>
+              <scale>7.0 7.0 7.0</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/mushrooms_blue/mushrooms_blue.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name="artifact_0_collision">
+          <geometry>
+            <mesh>
+              <scale>7.0 7.0 7.0</scale>
+              <uri>package://cave_explorer/worlds/models/artifacts/mushrooms_blue/mushrooms_blue.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+      </link>
+      <static>1</static>
+    </model>
+  </world>
+</sdf>
