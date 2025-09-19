@@ -1,0 +1,7 @@
+path: .             # or absolute path to dataset root
+train: images/train
+val: images/val
+test: images/test   # optional
+
+nc: 4               # number of classes
+names: [stop_sign, rock, panel, crate]
