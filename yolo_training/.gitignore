@@ -1,0 +1,7 @@
+# Yolo training artefacts
+runs*/
+*.pt
+*.onnx
+*.engine
+**/__pycache__/
+.cache/
