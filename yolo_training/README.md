@@ -1,3 +1,5 @@
+# How to train the yolo agent
+
 ## Classes
 ```yaml
 names:
@@ -16,6 +18,13 @@ names:
 
 1. Collect images and add them to /dataset/images/train/*.jpg|png
 2. Add labels for each image to /dataset/labels/train/*.txt
+3. Use the labelling gui for quick labelling
+
+
+## Label GUI
+```bash
+python 3 tools/label_gui.py
+```
 
 ## Check Labels
 
