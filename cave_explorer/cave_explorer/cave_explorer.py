@@ -224,6 +224,7 @@ class CaveExplorer(Node):
             self.localise_artifact()
 
 
+
     def localise_artifact(self):
         """
         INCOMPLETE:
