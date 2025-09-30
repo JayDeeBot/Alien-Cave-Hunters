@@ -12,7 +12,7 @@ class ImageSaver(Node):
         self.bridge = CvBridge()
         self.counter = 0
 
-        # Folder to save
+        # save local
         self.save_dir = os.path.join(
             os.path.dirname(__file__),
             'images/train'
@@ -27,7 +27,7 @@ class ImageSaver(Node):
             10
         )
 
-        # Timer every 2 sec
+        # every 2 sec
         self.timer = self.create_timer(2.0, self.save_image)
         self.latest_image = None
         self.get_logger().info("ImageSaver ready. Will save every 2s.")
