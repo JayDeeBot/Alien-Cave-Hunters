@@ -1,4 +1,4 @@
-path: .             # or absolute path to dataset root
+path: ./dataset             # or absolute path to dataset root
 train: images/train
 val: images/val
 test: images/test   # optional
