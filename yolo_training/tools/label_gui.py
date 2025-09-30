@@ -24,8 +24,15 @@ from tkinter import ttk, messagebox
 from PIL import Image, ImageTk  # pip install pillow
 
 # ---------------------- CONFIG: update if you change repo layout ----------------------
-IMAGES_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/images/train")
-LABELS_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/labels/train")
+# IMAGES_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/images/train") # Uncomment for training set 
+# LABELS_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/labels/train") # use 80/20 split training/validation
+
+# IMAGES_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/images/val") # Uncomment for validation set
+# LABELS_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/labels/val")
+
+IMAGES_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/images/test") # Uncomment for testing set
+LABELS_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/labels/test")
+
 CLASSES_YAML = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/tools/classes.yaml")
 
 # Max canvas size for display (image will be scaled to fit; coordinates are unscaled on save)

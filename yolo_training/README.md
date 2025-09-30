@@ -23,7 +23,7 @@ names:
 
 ## Label GUI
 ```bash
-python 3 tools/label_gui.py
+python3 tools/label_gui.py
 ```
 
 ## Check Labels
@@ -41,15 +41,27 @@ head -n 3 dataset/labels/train/*.txt | sed -n '1,10p'
 
 ## Train Yolo Agent
 
+```bash
 yolo task=detect mode=train \
   model=yolov8n.pt \
   data=dataset/data.yaml \
   epochs=50 imgsz=640 batch=16 \
   optimizer=auto seed=42 patience=20 \
   project=runs_cave name=yolov8n_baseline
+```
+
+## Test Trained Agent
+
+```bash
+yolo task=detect mode=val \
+  model=runs_cave/yolov8n_baseline3/weights/best.pt \
+  data=dataset/data.yaml \
+  split=test
+```
 
 ## Export & version the artefact
 
+```bash
 cp runs_cave/yolov8n_baseline/weights/best.pt \
    ../cave_explorer/config/best.pt
-
+```

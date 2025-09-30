@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
 
+# ### Perception 2 Imports ###
+# import numpy as np
+# from sensor_msgs.msg import CameraInfo
+
+# try:
+#     from ultralytics import YOLO
+#     _HAS_YOLO = True
+# except Exception as e:
+#     _HAS_YOLO = False
+# ### --------------------- ###
+
 import math
 import random
 from enum import Enum
@@ -121,12 +132,68 @@ class CaveExplorer(Node):
 
         # Prepare image processing
         self.image_detections_pub_ = self.create_publisher(Image, 'detections_image', 1)
+
+        ### Original Computer Vision Model ###
         self.declare_parameter('computer_vision_model_filename', rclpy.Parameter.Type.STRING)
         self.computer_vision_model_ = cv2.CascadeClassifier(self.get_parameter('computer_vision_model_filename').value)
+        ### --------------------- ###
+
+        # ### Perception 2 ###
+        # self.declare_parameter('yolo_model_path', rclpy.Parameter.Type.STRING)
+        # self.declare_parameter('yolo_conf', rclpy.Parameter.Type.DOUBLE)
+        # self.declare_parameter('yolo_iou', rclpy.Parameter.Type.DOUBLE)
+        # self.declare_parameter('yolo_imgsz', rclpy.Parameter.Type.INTEGER)
+        # self.declare_parameter('yolo_classes', rclpy.Parameter.Type.STRING_ARRAY)
+
+        # self.yolo_conf  = float(self.get_parameter('yolo_conf').value)
+        # self.yolo_iou   = float(self.get_parameter('yolo_iou').value)
+        # self.yolo_imgsz = int(self.get_parameter('yolo_imgsz').value)
+        # self.class_names = list(self.get_parameter('yolo_classes').value)
+        # self.use_depth_for_localisation = bool(self.get_parameter('use_depth_for_localisation').value)
+
+        # # Load YOLO model
+        # self.yolo_model = None
+        # if _HAS_YOLO:
+        #     try:
+        #         model_path = self.get_parameter('yolo_model_path').value
+        #         self.yolo_model = YOLO(model_path)
+        #         self.get_logger().warn(f"Loaded YOLO model: {model_path}")
+        #     except Exception as e:
+        #         self.get_logger().error(f"Failed to load YOLO: {e}")
+        # else:
+        #     self.get_logger().error("Ultralytics not installed. `pip install ultralytics`")
+        # ### --------------------- ###
+
+        # ### Perception 3 ###
+        # self.declare_parameter('use_depth_for_localisation', rclpy.Parameter.Type.BOOL)
+        # self.camera_info = None
+        # self.fx = self.fy = self.cx = self.cy = None
+        # self.create_subscription(CameraInfo, 'camera/camera_info', self.camera_info_cb, 1)
+        # self.depth_sub_ = self.create_subscription(Image, 'camera/depth/image', self.depth_callback, 1)
+        # self.latest_depth = None
+        # ### --------------------- ###
+
+        # Cache detections for planning/localisation
+        self.latest_detections = []  # list of dicts per frame
+
+
         self.image_sub_ = self.create_subscription(Image, 'camera/image', self.image_callback, 1)
 
         # Timer for main loop
         self.main_loop_timer_ = self.create_timer(0.2, self.main_loop)
+
+    # ### Perception 3 ###
+    # def camera_info_cb(self, msg: CameraInfo):
+    #     self.camera_info = msg
+    #     self.fx = msg.k[0]; self.fy = msg.k[4]
+    #     self.cx = msg.k[2]; self.cy = msg.k[5]
+
+    # def depth_callback(self, msg: Image):
+    #     depth = self.cv_bridge_.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+    #     if depth is not None and depth.dtype != np.float32:
+    #         depth = depth.astype(np.float32)
+    #     self.latest_depth = depth
+    # ### --------------------- ###
     
     def get_pose_2d(self):
         """Get the 2d pose of the robot"""
@@ -175,7 +242,8 @@ class CaveExplorer(Node):
         # self.get_logger().warn('Map received:')
         # self.get_logger().warn(f'  xlim = [{self.xlim_[0]:.2f}, {self.xlim_[1]:.2f}]')
         # self.get_logger().warn(f'  ylim = [{self.ylim_[0]:.2f}, {self.ylim_[1]:.2f}]')
-    
+
+    ### Original Computer Vision Model ###
     def image_callback(self, image_msg):
         """
         Recieve an RGB image.
@@ -222,6 +290,71 @@ class CaveExplorer(Node):
         if self.artifact_found_:
             self.get_logger().info('Artifact found!')
             self.localise_artifact()
+
+    ### --------------------- ###
+
+    # ### Perception 2 ###
+    # def image_callback(self, image_msg):
+    #     if self.yolo_model is None:
+    #         return
+
+    #     # BGR from ROS → RGB for YOLO
+    #     bgr = self.cv_bridge_.imgmsg_to_cv2(image_msg, desired_encoding='bgr8')
+    #     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+
+    #     # Inference
+    #     results = self.yolo_model.predict(
+    #         source=rgb,
+    #         conf=self.yolo_conf,
+    #         iou=self.yolo_iou,
+    #         imgsz=self.yolo_imgsz,
+    #         verbose=False,
+    #         device=0 if (cv2.cuda.getCudaEnabledDeviceCount() > 0) else 'cpu'
+    #     )
+
+    #     annotated = bgr.copy()
+    #     detections = []
+
+    #     if results and len(results) > 0:
+    #         res = results[0]
+    #         if res.boxes is not None and len(res.boxes) > 0:
+    #             for box in res.boxes:
+    #                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int).tolist()
+    #                 cls_id = int(box.cls[0].item())
+    #                 conf = float(box.conf[0].item())
+    #                 name = self.class_names[cls_id] if cls_id < len(self.class_names) else f"class_{cls_id}"
+
+    #                 cv2.rectangle(annotated, (x1,y1), (x2,y2), (0,255,0), 2)
+    #                 cv2.putText(annotated, f"{name} {conf:.2f}", (x1, max(0,y1-7)),
+    #                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1, cv2.LINE_AA)
+
+    #                 det = {"xyxy": [x1,y1,x2,y2], "cls": cls_id, "conf": conf, "stamp": image_msg.header.stamp}
+
+    #                 ### Perception 3 ###
+    #                 if self.use_depth_for_localisation and self.latest_depth is not None:
+    #                     cx = int((x1+x2)/2); cy = int((y1+y2)/2)
+    #                     if 0 <= cy < self.latest_depth.shape[0] and 0 <= cx < self.latest_depth.shape[1]:
+    #                         z = float(self.latest_depth[cy, cx])
+    #                         if np.isfinite(z) and z > 0:
+    #                             det["depth_m"] = z
+    #                             if self.fx and self.fy and self.cx is not None and self.cy is not None:
+    #                                 bearing_x = math.atan2((cx - self.cx), self.fx)
+    #                                 bearing_y = math.atan2((cy - self.cy), self.fy)
+    #                                 det["bearing_rad"] = (bearing_x, bearing_y)
+    #                 ### --------------------- ###
+    #                 detections.append(det)
+
+    #     # Update flags/state
+    #     self.latest_detections = detections
+    #     self.artifact_found_ = len(detections) > 0
+    #     if self.artifact_found_:
+    #         self.get_logger().info(f"Detections: {len(detections)}")
+
+    #     # Publish annotated image for RViz
+    #     out = self.cv_bridge_.cv2_to_imgmsg(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), encoding="rgb8")
+    #     out.header = image_msg.header
+    #     self.image_detections_pub_.publish(out)
+    #     ### --------------------- ###
 
 
 
