@@ -14,6 +14,7 @@ class PathPlanner():
         self.latest_map_ = None
         self.marker_pub_ = node.marker_pub_
 
+    #imported needed functions from cave_explorer
     def get_pose_2d(self):
         return self.node.get_pose_2d()
 
@@ -23,6 +24,7 @@ class PathPlanner():
     def get_logger(self):
         return self.node.get_logger()
 
+    #Function to find fronties from map occupancy grid
     def find_frontiers(self, map_msg: OccupancyGrid):
         """
         Identify frontier cells: unknown cells (value=-1) adjacent to free space (value=0)
@@ -33,34 +35,49 @@ class PathPlanner():
         
         frontiers = []
 
+        #iterate through grid data
         for y in range(1, height-1):
             for x in range(1, width-1):
-                if data[y, x] == -1:  # Unknown
-                    # Check 4-neighbourhood for free space
+                if data[y, x] == -1:  #check if the cell is unknown
+
+                    #Check 4-neighbourhood for free space
                     if 0 in [data[y+1, x], data[y-1, x], data[y, x+1], data[y, x-1]]:
-                        # Convert grid index to map coordinates
+                        #Convert grid index to map coordinates
                         map_x = map_msg.info.origin.position.x + x * map_msg.info.resolution
                         map_y = map_msg.info.origin.position.y + y * map_msg.info.resolution
+
+                        #add point to frontiers array
                         frontiers.append((map_x, map_y))
-    
+
+        #return array will points of fronties(unkown cells)
         return frontiers
     
+    #Function to pick which frontier to go to
     def choose_frontier(self, frontiers, robot_pose):
+        #Fail safe- make sure there are valid points
         if not frontiers:
             return None
 
+        #Calclute euclidean distance to each point and pick the smallets one (pick the closest fronteir)
         best_frontier = min(frontiers, key=lambda f: math.hypot(f[0]-robot_pose.x, f[1]-robot_pose.y))
+        #Convert and retrun the selected forntier as a Pose2D
         return Pose2D(x=best_frontier[0], y=best_frontier[1], theta=0.0)
-
-    def planner_frontier_exploration(self):
+    
+    #Function 
+    def frontier_exploration(self):
         """Perform frontier-based exploration"""
+
+        #Fail safe - check for valid robot pose
         robot_pose = self.get_pose_2d()
         if robot_pose is None:
             return
 
+        #Find all frontiers
         frontiers = self.find_frontiers(self.latest_map_)
+        #Select Frontier
         goal_pose = self.choose_frontier(frontiers, robot_pose)
 
+        #If goal is valid send goal_pose
         if goal_pose is not None:
             self.planner_go_to_pose2d(goal_pose)
             self.get_logger().info(f'Exploring frontier at [{goal_pose.x:.2f}, {goal_pose.y:.2f}]')
@@ -70,6 +87,7 @@ class PathPlanner():
         else:
             self.get_logger().warn("No frontiers found! Exploration complete.")
 
+    #Function to publish markers
     def publish_frontier_markers(self, frontiers, goal):
         marker_array = MarkerArray()
 

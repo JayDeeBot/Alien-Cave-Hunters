@@ -560,13 +560,16 @@ class CaveExplorer(Node):
         if not self.ready_for_next_goal_:
             return
         self.ready_for_next_goal_ = False
-
+        
+        #Set planner type to frontier
         self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
         self.get_logger().info(f'Calling planner: {self.planner_type_.name}')
 
+        #Run though control logic
         if self.planner_type_ == PlannerType.FRONTIER_EXPLORATION:
             if hasattr(self.path_planner, 'latest_map_') and self.path_planner.latest_map_ is not None:
-                self.path_planner.planner_frontier_exploration()
+                #run frontier explortion
+                self.path_planner.frontier_exploration()
             else:
                 self.get_logger().warn('No map received yet. Cannot perform frontier exploration.')
                 self.ready_for_next_goal_ = True  # allow retry next loop
