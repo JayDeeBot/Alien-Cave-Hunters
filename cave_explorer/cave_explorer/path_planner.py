@@ -32,15 +32,12 @@ class PathPlanner():
     
         return frontiers
     
-
     def choose_frontier(self, frontiers, robot_pose):
         if not frontiers:
             return None
 
         best_frontier = min(frontiers, key=lambda f: math.hypot(f[0]-robot_pose.x, f[1]-robot_pose.y))
         return Pose2D(x=best_frontier[0], y=best_frontier[1], theta=0.0)
-    
-
 
     def planner_frontier_exploration(self):
         """Perform frontier-based exploration"""

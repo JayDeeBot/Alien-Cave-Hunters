@@ -22,6 +22,18 @@ source install/setup.bash
 
 ## Launch
 ```bash
+
+
+#Launch Simulator
+ros2 launch cave_explorer cave_explorer_startup.launch.py
+
+#Launch Basic Demo Navigation
+ros2 launch cave_explorer cave_explorer_navigation.launch.py
+
+#Launch Main Code
+ros2 launch cave_explorer cave_explorer_autonomy.launch.py
+
+#Launch Main Code
 ros2 launch cave_explorer cave_explorer_startup.launch.py
 ```
 
@@ -29,3 +41,5 @@ ros2 launch cave_explorer cave_explorer_startup.launch.py
 ```bash
 
 ```
+
+

@@ -28,6 +28,8 @@ from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
+from cave_explorer.path_planner import PathPlanner
+
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
 
@@ -62,6 +64,7 @@ class PlannerType(Enum):
     GO_TO_FIRST_ARTIFACT = 3
     RANDOM_WALK = 4
     RANDOM_GOAL = 5
+    FRONTIER_EXPLORATION = 6
     # Add more!
 
 
@@ -111,6 +114,9 @@ class CaveExplorer(Node):
 
         # Initialise CvBridge
         self.cv_bridge_ = CvBridge()
+
+        #Create path_planner
+        self.path_planner = PathPlanner()
 
         # Prepare transformation to get robot pose
         self.tf_buffer = Buffer()
@@ -553,6 +559,8 @@ class CaveExplorer(Node):
 
         self.ready_for_next_goal_ = False
 
+        if self.planner_type_ == PlannerType.FRONTIER_EXPLORATION:
+            self.path_planner.planner_frontier_exploration()
         if self.planner_type_ == PlannerType.GO_TO_FIRST_ARTIFACT:
             self.get_logger().info('Successfully reached first artifact!')
             self.reached_first_artifact_ = True
