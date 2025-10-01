@@ -65,6 +65,7 @@ class PlannerType(Enum):
     RANDOM_WALK = 4
     RANDOM_GOAL = 5
     FRONTIER_EXPLORATION = 6
+    ARTIFACT_EXPLORATION = 7
     # Add more!
 
 
@@ -117,6 +118,7 @@ class CaveExplorer(Node):
 
         #Create path_planner
         self.path_planner = PathPlanner(self)
+        self.use_classic = False
 
         # Prepare transformation to get robot pose
         self.tf_buffer = Buffer()
@@ -182,11 +184,13 @@ class CaveExplorer(Node):
         # Cache detections for planning/localisation
         self.latest_detections = []  # list of dicts per frame
 
-
         self.image_sub_ = self.create_subscription(Image, 'camera/image', self.image_callback, 1)
 
         # Timer for main loop
-        self.main_loop_timer_ = self.create_timer(0.2, self.main_loop)
+        if self.use_classic:
+            self.main_loop_timer_ = self.create_timer(0.2, self.main_loop_classic)
+        else:
+            self.main_loop_timer_ = self.create_timer(0.2, self.main_loop)
 
     # ### Perception 3 ###
     # def camera_info_cb(self, msg: CameraInfo):
@@ -230,6 +234,50 @@ class CaveExplorer(Node):
         self.get_logger().warn(f'Pose: {pose}')
 
         return pose
+    
+    def localise_artifact(self):
+        """
+        INCOMPLETE:
+        Compute the location of the artifact
+        Save it to a list, publish rviz marker
+        This version just uses the robot location rather than the artifact location
+        You can find other examples of using RViz markers in the previous assignments template code
+        """
+
+        # Current location of the robot
+        robot_pose = self.get_pose_2d()
+
+        if robot_pose == None:
+            self.get_logger().warn(f'localise_artifact: robot_pose is None.')
+            return
+
+        # Compute the location of the artifact
+        # This is currently INCOMPLETE
+        point = Point()
+        point.x = robot_pose.x
+        point.y = robot_pose.y
+        point.z = 1.0
+
+        # Save it
+        self.artifact_locations_.append(point)
+
+        # Publish the markers
+        self.publish_artifact_markers()
+
+    def publish_artifact_markers(self):
+        """ Publish the artifact location markers"""
+
+        # Update the locations
+        self.marker_artifacts_.points = self.artifact_locations_
+
+        # Create and publish the MarkerArray
+        marker_array = MarkerArray()
+        marker_array.markers = [self.marker_artifacts_]
+        self.marker_pub_.publish(marker_array)
+
+##########################################
+##### ----- Callback Functions ----- #####
+##########################################
 
     def map_callback(self, map_msg: OccupancyGrid):
         """New map received, so update x and y limits"""
@@ -367,73 +415,6 @@ class CaveExplorer(Node):
     #     self.image_detections_pub_.publish(out)
     #     ### --------------------- ###
 
-
-    def localise_artifact(self):
-        """
-        INCOMPLETE:
-        Compute the location of the artifact
-        Save it to a list, publish rviz marker
-        This version just uses the robot location rather than the artifact location
-        You can find other examples of using RViz markers in the previous assignments template code
-        """
-
-        # Current location of the robot
-        robot_pose = self.get_pose_2d()
-
-        if robot_pose == None:
-            self.get_logger().warn(f'localise_artifact: robot_pose is None.')
-            return
-
-        # Compute the location of the artifact
-        # This is currently INCOMPLETE
-        point = Point()
-        point.x = robot_pose.x
-        point.y = robot_pose.y
-        point.z = 1.0
-
-        # Save it
-        self.artifact_locations_.append(point)
-
-        # Publish the markers
-        self.publish_artifact_markers()
-
-    def publish_artifact_markers(self):
-        """ Publish the artifact location markers"""
-
-        # Update the locations
-        self.marker_artifacts_.points = self.artifact_locations_
-
-        # Create and publish the MarkerArray
-        marker_array = MarkerArray()
-        marker_array.markers = [self.marker_artifacts_]
-        self.marker_pub_.publish(marker_array)
-
-
-    def planner_go_to_pose2d(self, pose2d):
-        """Go to a provided 2d pose"""
-
-        # Send a goal to navigate_to_pose with self.nav2_action_client_
-        action_goal = NavigateToPose.Goal()
-        action_goal.pose.header.stamp = self.get_clock().now().to_msg()
-        action_goal.pose.header.frame_id = 'map'
-        action_goal.pose.pose = pose2d_to_pose(pose2d)
-
-        # Publish visualisation
-        self.goal_pose_vis_.publish(action_goal.pose)
-
-        # Decide whether to show feedback or not
-        if self.get_parameter('print_feedback').value:
-            feedback_method = self.feedback_callback
-        else:
-            feedback_method = None
-
-        # Send goal to action server
-        self.get_logger().warn(f'Sending goal [{pose2d.x:.2f}, {pose2d.y:.2f}]...')
-        self.send_goal_future_ = self.nav2_action_client_.send_goal_async(
-            action_goal,
-            feedback_callback=feedback_method)
-        self.send_goal_future_.add_done_callback(self.goal_response_callback)
-
     def goal_response_callback(self, future):
         """The requested goal pose has been sent to the action server"""
 
@@ -461,6 +442,34 @@ class CaveExplorer(Node):
         self.get_logger().info(f'Goal reached!')
         self.ready_for_next_goal_ = True
 
+#########################################
+##### ----- Planner Functions ----- #####
+#########################################
+
+    def planner_go_to_pose2d(self, pose2d):
+        """Go to a provided 2d pose"""
+
+        # Send a goal to navigate_to_pose with self.nav2_action_client_
+        action_goal = NavigateToPose.Goal()
+        action_goal.pose.header.stamp = self.get_clock().now().to_msg()
+        action_goal.pose.header.frame_id = 'map'
+        action_goal.pose.pose = pose2d_to_pose(pose2d)
+
+        # Publish visualisation
+        self.goal_pose_vis_.publish(action_goal.pose)
+
+        # Decide whether to show feedback or not
+        if self.get_parameter('print_feedback').value:
+            feedback_method = self.feedback_callback
+        else:
+            feedback_method = None
+
+        # Send goal to action server
+        self.get_logger().warn(f'Sending goal [{pose2d.x:.2f}, {pose2d.y:.2f}]...')
+        self.send_goal_future_ = self.nav2_action_client_.send_goal_async(
+            action_goal,
+            feedback_callback=feedback_method)
+        self.send_goal_future_.add_done_callback(self.goal_response_callback)
 
     def planner_move_forwards(self, distance):
         """Simply move forward by the specified distance"""
@@ -540,10 +549,46 @@ class CaveExplorer(Node):
         )
         self.planner_go_to_pose2d(goal_pose2d)
 
+#################################
+##### ----- Main Loop ----- #####
+#################################
+
     def main_loop(self):
         """
         Set the next goal pose and send to the action server
-        See https://docs.nav2.org/concepts/index.html
+        """
+        # Don't do anything until SLAM is launched
+        if not self.tf_buffer.can_transform(
+                'map',
+                'base_link',
+                rclpy.time.Time()):
+            self.get_logger().warn('Waiting for transform... Have you launched a SLAM node?')
+            return
+        
+        #Set planner type to frontier
+        if self.artifact_found_:
+            self.planner_type_ = PlannerType.ARTIFACT_EXPLORATION
+        else:
+            self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
+
+        self.get_logger().info(f'Calling planner: {self.planner_type_.name}')
+
+        #Run though control logic
+        if self.planner_type_ == PlannerType.FRONTIER_EXPLORATION:
+            if hasattr(self.path_planner, 'latest_map_') and self.path_planner.latest_map_ is not None:
+                #run frontier explortion
+                self.path_planner.frontier_exploration_step()
+            else:
+                self.get_logger().warn('No map received yet. Cannot perform frontier exploration.')
+
+        elif self.planner_type_ == PlannerType.ARTIFACT_EXPLORATION:
+            self.path_planner.artifact_exploration_step()
+        else:
+            self.get_logger().error('No valid planner selected')
+
+    def main_loop_classic(self):
+        """
+        Original main loop
         """
         # Don't do anything until SLAM is launched
         if not self.tf_buffer.can_transform(
@@ -557,67 +602,47 @@ class CaveExplorer(Node):
         # Update flags related to the progress of the current planner
 
         # Check if previous goal still running
-        # if not self.ready_for_next_goal_:
-        #     return
-        # self.ready_for_next_goal_ = False
-        
-        #Set planner type to frontier
-        self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
-        self.get_logger().info(f'Calling planner: {self.planner_type_.name}')
+        if not self.ready_for_next_goal_:
+            # self.get_logger().info(f'Previous goal still running')
+            return
 
-        #Run though control logic
-        if self.planner_type_ == PlannerType.FRONTIER_EXPLORATION:
-            if hasattr(self.path_planner, 'latest_map_') and self.path_planner.latest_map_ is not None:
-                #run frontier explortion
-                self.path_planner.frontier_exploration_step()
-            else:
-                self.get_logger().warn('No map received yet. Cannot perform frontier exploration.')
-                self.ready_for_next_goal_ = True  # allow retry next loop
+        self.ready_for_next_goal_ = False
+
+        if self.planner_type_ == PlannerType.GO_TO_FIRST_ARTIFACT:
+            self.get_logger().info('Successfully reached first artifact!')
+            self.reached_first_artifact_ = True
+        if self.planner_type_ == PlannerType.RETURN_HOME:
+            self.get_logger().info('Successfully returned home!')
+            self.returned_home_ = True
+
+        #######################################################
+        # Select the next planner to execute
+        # Update this logic as you see fit!
+        if not self.reached_first_artifact_:
+            self.planner_type_ = PlannerType.GO_TO_FIRST_ARTIFACT
+        elif not self.returned_home_:
+            self.planner_type_ = PlannerType.RETURN_HOME
+        else:
+            self.planner_type_ = PlannerType.RANDOM_GOAL
+
+        #######################################################
+        # Execute the planner by calling the relevant method
+        # Add your own planners here!
+        self.get_logger().info(f'Calling planner: {self.planner_type_.name}')
+        if self.planner_type_ == PlannerType.MOVE_FORWARDS:
+            self.planner_move_forwards(10)
+        elif self.planner_type_ == PlannerType.GO_TO_FIRST_ARTIFACT:
+            self.planner_go_to_first_artifact()
+        elif self.planner_type_ == PlannerType.RETURN_HOME:
+            self.planner_return_home()
+        elif self.planner_type_ == PlannerType.RANDOM_WALK:
+            self.planner_random_walk()
+        elif self.planner_type_ == PlannerType.RANDOM_GOAL:
+            self.planner_random_goal()
         else:
             self.get_logger().error('No valid planner selected')
-            self.ready_for_next_goal_ = True
-
-        # self.get_client_names_and_types_by_node
-        # if self.planner_type_ == PlannerType.FRONTIER_EXPLORATION:
-        #     self.get_logger().info('I AM THE FRONTIER-ER')
-        #     self.path_planner.planner_frontier_exploration()
-        # if self.planner_type_ == PlannerType.GO_TO_FIRST_ARTIFACT:
-        #     self.get_logger().info('Successfully reached first artifact!')
-        #     self.reached_first_artifact_ = True
-        # if self.planner_type_ == PlannerType.RETURN_HOME:
-        #     self.get_logger().info('Successfully returned home!')
-        #     self.returned_home_ = True
-
-        # #######################################################
-        # # Select the next planner to execute
-        # # Update this logic as you see fit!
-        # if not self.reached_first_artifact_:
-        #     self.planner_type_ = PlannerType.GO_TO_FIRST_ARTIFACT
-        # elif not self.returned_home_:
-        #     self.planner_type_ = PlannerType.RETURN_HOME
-        # else:
-        #     self.planner_type_ = PlannerType.RANDOM_GOAL
-
-        # #######################################################
-        # # Execute the planner by calling the relevant method
-        # # Add your own planners here!
-        # self.get_logger().info(f'Calling planner: {self.planner_type_.name}')
-        # if self.planner_type_ == PlannerType.MOVE_FORWARDS:
-        #     self.planner_move_forwards(10)
-        # elif self.planner_type_ == PlannerType.GO_TO_FIRST_ARTIFACT:
-        #     self.planner_go_to_first_artifact()
-        # elif self.planner_type_ == PlannerType.RETURN_HOME:
-        #     self.planner_return_home()
-        # elif self.planner_type_ == PlannerType.RANDOM_WALK:
-        #     self.planner_random_walk()
-        # elif self.planner_type_ == PlannerType.RANDOM_GOAL:
-        #     self.planner_random_goal()
-        # else:
-        #     self.get_logger().error('No valid planner selected')
-        #     self.destroy_node()
-
-
-        # #######################################################
+            self.destroy_node()
+        #######################################################
 
 def main():
     # Initialise

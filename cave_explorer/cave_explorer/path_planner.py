@@ -14,6 +14,10 @@ class PathPlanner():
         self.latest_map_ = None
         self.marker_pub_ = node.marker_pub_
 
+########################################
+##### ----- Helper Functions ----- #####
+########################################
+
     #imported needed functions from cave_explorer
     def get_pose_2d(self):
         return self.node.get_pose_2d()
@@ -23,6 +27,10 @@ class PathPlanner():
 
     def get_logger(self):
         return self.node.get_logger()
+
+#############################################
+##### ----- Frontier Path Planner ----- #####
+#############################################
 
     #Function to find fronties from map occupancy grid
     def find_frontiers(self, map_msg: OccupancyGrid):
@@ -102,11 +110,9 @@ class PathPlanner():
         y_mean = sum(p[1] for p in largest_cluster) / len(largest_cluster)
 
         return Pose2D(x=x_mean, y=y_mean, theta=0.0)
-
     
     #Function called every frame/step to coninitusly update the robot with the most recent data
     def frontier_exploration_step(self):
-        self.get_logger().info('TAKING STEP!!!!!!!!!!!!!!!!!!!!')
         """Perform one iteration of frontier-based exploration with dynamic replanning."""
         robot_pose = self.get_pose_2d()
         if robot_pose is None:
@@ -165,3 +171,20 @@ class PathPlanner():
         marker_array.markers.append(goal_marker)
 
         self.marker_pub_.publish(marker_array)
+
+#############################################
+##### ----- Artifact Path Planner ----- #####
+#############################################
+
+    def check_artifact_register(self):
+        ''' Checks to see if artifact has already been visted and if so how much time has been spent visiting it'''
+        pass
+
+    
+    def artifact_exploration_step(self):
+        pass
+
+    def register_artifact():
+        '''After artifact inspection add it to register and plot it on rviz'''
+        pass
+        
