@@ -52,40 +52,83 @@ class PathPlanner():
         #return array will points of fronties(unkown cells)
         return frontiers
     
+    def cluster_frontiers(self, frontiers, threshold=0.5):
+        """
+        Cluster frontier points based on proximity using BFS.
+        Returns a list of clusters, each cluster is a list of (x, y) points.
+        """
+        clusters = []
+        visited = set()
+
+        for i, f in enumerate(frontiers):
+            if i in visited:
+                continue
+            cluster = [f]
+            queue = [f]
+            visited.add(i)
+
+            while queue:
+                fx, fy = queue.pop(0)
+                for j, other in enumerate(frontiers):
+                    if j in visited:
+                        continue
+                    ox, oy = other
+                    if math.hypot(fx - ox, fy - oy) <= threshold:
+                        queue.append(other)
+                        cluster.append(other)
+                        visited.add(j)
+            clusters.append(cluster)
+
+        return clusters
+
+    
     #Function to pick which frontier to go to
     def choose_frontier(self, frontiers, robot_pose):
-        #Fail safe- make sure there are valid points
+        """
+        Choose the frontier cluster with the largest number of points.
+        Returns the centroid of that cluster as a Pose2D.
+        """
         if not frontiers:
             return None
 
-        #Calclute euclidean distance to each point and pick the smallets one (pick the closest fronteir)
-        best_frontier = min(frontiers, key=lambda f: math.hypot(f[0]-robot_pose.x, f[1]-robot_pose.y))
-        #Convert and retrun the selected forntier as a Pose2D
-        return Pose2D(x=best_frontier[0], y=best_frontier[1], theta=0.0)
-    
-    #Function 
-    def frontier_exploration(self):
-        """Perform frontier-based exploration"""
+        # Cluster the frontiers
+        clusters = self.cluster_frontiers(frontiers)
 
-        #Fail safe - check for valid robot pose
+        # Pick the largest cluster
+        largest_cluster = max(clusters, key=len)
+
+        # Return the centroid of the cluster
+        x_mean = sum(p[0] for p in largest_cluster) / len(largest_cluster)
+        y_mean = sum(p[1] for p in largest_cluster) / len(largest_cluster)
+
+        return Pose2D(x=x_mean, y=y_mean, theta=0.0)
+
+    
+    #Function called every frame/step to coninitusly update the robot with the most recent data
+    def frontier_exploration_step(self):
+        self.get_logger().info('TAKING STEP!!!!!!!!!!!!!!!!!!!!')
+        """Perform one iteration of frontier-based exploration with dynamic replanning."""
         robot_pose = self.get_pose_2d()
         if robot_pose is None:
             return
 
-        #Find all frontiers
+        if self.latest_map_ is None:
+            self.get_logger().warn("No map available yet for frontier exploration.")
+            return
+
         frontiers = self.find_frontiers(self.latest_map_)
-        #Select Frontier
+        if not frontiers:
+            self.get_logger().warn("No frontiers found! Exploration complete.")
+            return
+
         goal_pose = self.choose_frontier(frontiers, robot_pose)
 
-        #If goal is valid send goal_pose
         if goal_pose is not None:
             self.planner_go_to_pose2d(goal_pose)
-            self.get_logger().info(f'Exploring frontier at [{goal_pose.x:.2f}, {goal_pose.y:.2f}]')
-            
-            # Optional: visualize frontiers in RViz
+            self.get_logger().info(f'Exploring largest frontier at [{goal_pose.x:.2f}, {goal_pose.y:.2f}]')
             self.publish_frontier_markers(frontiers, goal_pose)
-        else:
-            self.get_logger().warn("No frontiers found! Exploration complete.")
+
+
 
     #Function to publish markers
     def publish_frontier_markers(self, frontiers, goal):
@@ -98,7 +141,7 @@ class PathPlanner():
         frontier_marker.action = Marker.ADD
         frontier_marker.scale.x = 0.3
         frontier_marker.scale.y = 0.3
-        frontier_marker.color.r = 1.0
+        frontier_marker.color.b = 1.0
         frontier_marker.color.a = 1.0
         frontier_marker.points = [Point(x=f[0], y=f[1], z=0.0) for f in frontiers] if frontiers else []
         frontier_marker.id = 0
