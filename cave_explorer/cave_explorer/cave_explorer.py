@@ -28,6 +28,8 @@ from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
+from cave_explorer.path_planner import PathPlanner
+
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
 
@@ -62,6 +64,7 @@ class PlannerType(Enum):
     GO_TO_FIRST_ARTIFACT = 3
     RANDOM_WALK = 4
     RANDOM_GOAL = 5
+    FRONTIER_EXPLORATION = 6
     # Add more!
 
 
@@ -111,6 +114,9 @@ class CaveExplorer(Node):
 
         # Initialise CvBridge
         self.cv_bridge_ = CvBridge()
+
+        #Create path_planner
+        self.path_planner = PathPlanner(self)
 
         # Prepare transformation to get robot pose
         self.tf_buffer = Buffer()
@@ -238,6 +244,11 @@ class CaveExplorer(Node):
         # Set current limits
         self.xlim_ = [map_origin[0], map_origin[0]+map_width*map_resolution]
         self.ylim_ = [map_origin[1], map_origin[1]+map_height*map_resolution]
+
+
+        # Store the latest map for the PathPlanner
+        self.latest_map_ = map_msg
+        self.path_planner.latest_map_ = map_msg  # forward map to PathPlanner
 
         # self.get_logger().warn('Map received:')
         # self.get_logger().warn(f'  xlim = [{self.xlim_[0]:.2f}, {self.xlim_[1]:.2f}]')
@@ -535,7 +546,6 @@ class CaveExplorer(Node):
         Set the next goal pose and send to the action server
         See https://docs.nav2.org/concepts/index.html
         """
-        
         # Don't do anything until SLAM is launched
         if not self.tf_buffer.can_transform(
                 'map',
@@ -548,49 +558,67 @@ class CaveExplorer(Node):
         # Update flags related to the progress of the current planner
 
         # Check if previous goal still running
-        if not self.ready_for_next_goal_:
-            # self.get_logger().info(f'Previous goal still running')
-            return
-
-        self.ready_for_next_goal_ = False
-
-        if self.planner_type_ == PlannerType.GO_TO_FIRST_ARTIFACT:
-            self.get_logger().info('Successfully reached first artifact!')
-            self.reached_first_artifact_ = True
-        if self.planner_type_ == PlannerType.RETURN_HOME:
-            self.get_logger().info('Successfully returned home!')
-            self.returned_home_ = True
-
-        #######################################################
-        # Select the next planner to execute
-        # Update this logic as you see fit!
-        if not self.reached_first_artifact_:
-            self.planner_type_ = PlannerType.GO_TO_FIRST_ARTIFACT
-        elif not self.returned_home_:
-            self.planner_type_ = PlannerType.RETURN_HOME
-        else:
-            self.planner_type_ = PlannerType.RANDOM_GOAL
-
-        #######################################################
-        # Execute the planner by calling the relevant method
-        # Add your own planners here!
+        # if not self.ready_for_next_goal_:
+        #     return
+        # self.ready_for_next_goal_ = False
+        
+        #Set planner type to frontier
+        self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
         self.get_logger().info(f'Calling planner: {self.planner_type_.name}')
-        if self.planner_type_ == PlannerType.MOVE_FORWARDS:
-            self.planner_move_forwards(10)
-        elif self.planner_type_ == PlannerType.GO_TO_FIRST_ARTIFACT:
-            self.planner_go_to_first_artifact()
-        elif self.planner_type_ == PlannerType.RETURN_HOME:
-            self.planner_return_home()
-        elif self.planner_type_ == PlannerType.RANDOM_WALK:
-            self.planner_random_walk()
-        elif self.planner_type_ == PlannerType.RANDOM_GOAL:
-            self.planner_random_goal()
+
+        #Run though control logic
+        if self.planner_type_ == PlannerType.FRONTIER_EXPLORATION:
+            if hasattr(self.path_planner, 'latest_map_') and self.path_planner.latest_map_ is not None:
+                #run frontier explortion
+                self.path_planner.frontier_exploration_step()
+            else:
+                self.get_logger().warn('No map received yet. Cannot perform frontier exploration.')
+                self.ready_for_next_goal_ = True  # allow retry next loop
         else:
             self.get_logger().error('No valid planner selected')
-            self.destroy_node()
+            self.ready_for_next_goal_ = True
+
+        # self.get_client_names_and_types_by_node
+        # if self.planner_type_ == PlannerType.FRONTIER_EXPLORATION:
+        #     self.get_logger().info('I AM THE FRONTIER-ER')
+        #     self.path_planner.planner_frontier_exploration()
+        # if self.planner_type_ == PlannerType.GO_TO_FIRST_ARTIFACT:
+        #     self.get_logger().info('Successfully reached first artifact!')
+        #     self.reached_first_artifact_ = True
+        # if self.planner_type_ == PlannerType.RETURN_HOME:
+        #     self.get_logger().info('Successfully returned home!')
+        #     self.returned_home_ = True
+
+        # #######################################################
+        # # Select the next planner to execute
+        # # Update this logic as you see fit!
+        # if not self.reached_first_artifact_:
+        #     self.planner_type_ = PlannerType.GO_TO_FIRST_ARTIFACT
+        # elif not self.returned_home_:
+        #     self.planner_type_ = PlannerType.RETURN_HOME
+        # else:
+        #     self.planner_type_ = PlannerType.RANDOM_GOAL
+
+        # #######################################################
+        # # Execute the planner by calling the relevant method
+        # # Add your own planners here!
+        # self.get_logger().info(f'Calling planner: {self.planner_type_.name}')
+        # if self.planner_type_ == PlannerType.MOVE_FORWARDS:
+        #     self.planner_move_forwards(10)
+        # elif self.planner_type_ == PlannerType.GO_TO_FIRST_ARTIFACT:
+        #     self.planner_go_to_first_artifact()
+        # elif self.planner_type_ == PlannerType.RETURN_HOME:
+        #     self.planner_return_home()
+        # elif self.planner_type_ == PlannerType.RANDOM_WALK:
+        #     self.planner_random_walk()
+        # elif self.planner_type_ == PlannerType.RANDOM_GOAL:
+        #     self.planner_random_goal()
+        # else:
+        #     self.get_logger().error('No valid planner selected')
+        #     self.destroy_node()
 
 
-        #######################################################
+        # #######################################################
 
 def main():
     # Initialise
