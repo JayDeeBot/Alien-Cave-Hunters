@@ -1,4 +1,6 @@
 import math
+import numpy as np
+
 from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import Pose, Pose2D, PoseStamped, Point
 
@@ -7,8 +9,19 @@ from visualization_msgs.msg import MarkerArray
 
 
 class PathPlanner():
-    def __init__(self):
-        pass
+    def __init__(self, node):
+        self.node = node
+        self.latest_map_ = None
+        self.marker_pub_ = node.marker_pub_
+
+    def get_pose_2d(self):
+        return self.node.get_pose_2d()
+
+    def planner_go_to_pose2d(self, pose2d):
+        self.node.planner_go_to_pose2d(pose2d)
+
+    def get_logger(self):
+        return self.node.get_logger()
 
     def find_frontiers(self, map_msg: OccupancyGrid):
         """
@@ -60,7 +73,7 @@ class PathPlanner():
     def publish_frontier_markers(self, frontiers, goal):
         marker_array = MarkerArray()
 
-        # Frontier points
+        # Frontier points (check if frontiers exist)
         frontier_marker = Marker()
         frontier_marker.header.frame_id = 'map'
         frontier_marker.type = Marker.POINTS
@@ -69,7 +82,8 @@ class PathPlanner():
         frontier_marker.scale.y = 0.3
         frontier_marker.color.r = 1.0
         frontier_marker.color.a = 1.0
-        frontier_marker.points = [Point(x=f[0], y=f[1], z=0.0) for f in frontiers]
+        frontier_marker.points = [Point(x=f[0], y=f[1], z=0.0) for f in frontiers] if frontiers else []
+        frontier_marker.id = 0
         marker_array.markers.append(frontier_marker)
 
         # Goal point
@@ -82,9 +96,11 @@ class PathPlanner():
         goal_marker.scale.z = 0.5
         goal_marker.color.g = 1.0
         goal_marker.color.a = 1.0
-        goal_marker.pose.position.x = goal.x
-        goal_marker.pose.position.y = goal.y
-        goal_marker.pose.position.z = 0.0
+        if goal is not None:
+            goal_marker.pose.position.x = goal.x
+            goal_marker.pose.position.y = goal.y
+            goal_marker.pose.position.z = 0.0
+        goal_marker.id = 1
         marker_array.markers.append(goal_marker)
 
         self.marker_pub_.publish(marker_array)
