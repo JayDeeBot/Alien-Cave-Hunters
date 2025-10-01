@@ -28,6 +28,8 @@ from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
+from cave_explorer.path_planner import PathPlanner
+
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
 
@@ -62,13 +64,9 @@ class PlannerType(Enum):
     GO_TO_FIRST_ARTIFACT = 3
     RANDOM_WALK = 4
     RANDOM_GOAL = 5
-<<<<<<< HEAD
     FRONTIER_EXPLORATION = 6
     ARTIFACT_EXPLORATION = 7
-=======
->>>>>>> 15f55b8e661e9948d2e9910e6cefbf0f327dd78d
     # Add more!
-
 
 class CaveExplorer(Node):
     def __init__(self):
@@ -117,13 +115,10 @@ class CaveExplorer(Node):
         # Initialise CvBridge
         self.cv_bridge_ = CvBridge()
 
-<<<<<<< HEAD
         #Create path_planner
         self.path_planner = PathPlanner(self)
         self.use_classic = False
 
-=======
->>>>>>> 15f55b8e661e9948d2e9910e6cefbf0f327dd78d
         # Prepare transformation to get robot pose
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -297,6 +292,9 @@ class CaveExplorer(Node):
         self.xlim_ = [map_origin[0], map_origin[0]+map_width*map_resolution]
         self.ylim_ = [map_origin[1], map_origin[1]+map_height*map_resolution]
 
+        self.latest_map_ = map_msg
+        self.path_planner.latest_map_ = map_msg  # forward map to PathPlanner
+
         # self.get_logger().warn('Map received:')
         # self.get_logger().warn(f'  xlim = [{self.xlim_[0]:.2f}, {self.xlim_[1]:.2f}]')
         # self.get_logger().warn(f'  ylim = [{self.ylim_[0]:.2f}, {self.ylim_[1]:.2f}]')
@@ -414,77 +412,6 @@ class CaveExplorer(Node):
     #     self.image_detections_pub_.publish(out)
     #     ### --------------------- ###
 
-<<<<<<< HEAD
-=======
-
-
-    def localise_artifact(self):
-        """
-        INCOMPLETE:
-        Compute the location of the artifact
-        Save it to a list, publish rviz marker
-        This version just uses the robot location rather than the artifact location
-        You can find other examples of using RViz markers in the previous assignments template code
-        """
-
-        # Current location of the robot
-        robot_pose = self.get_pose_2d()
-
-        if robot_pose == None:
-            self.get_logger().warn(f'localise_artifact: robot_pose is None.')
-            return
-
-        # Compute the location of the artifact
-        # This is currently INCOMPLETE
-        point = Point()
-        point.x = robot_pose.x
-        point.y = robot_pose.y
-        point.z = 1.0
-
-        # Save it
-        self.artifact_locations_.append(point)
-
-        # Publish the markers
-        self.publish_artifact_markers()
-
-    def publish_artifact_markers(self):
-        """ Publish the artifact location markers"""
-
-        # Update the locations
-        self.marker_artifacts_.points = self.artifact_locations_
-
-        # Create and publish the MarkerArray
-        marker_array = MarkerArray()
-        marker_array.markers = [self.marker_artifacts_]
-        self.marker_pub_.publish(marker_array)
-
-
-    def planner_go_to_pose2d(self, pose2d):
-        """Go to a provided 2d pose"""
-
-        # Send a goal to navigate_to_pose with self.nav2_action_client_
-        action_goal = NavigateToPose.Goal()
-        action_goal.pose.header.stamp = self.get_clock().now().to_msg()
-        action_goal.pose.header.frame_id = 'map'
-        action_goal.pose.pose = pose2d_to_pose(pose2d)
-
-        # Publish visualisation
-        self.goal_pose_vis_.publish(action_goal.pose)
-
-        # Decide whether to show feedback or not
-        if self.get_parameter('print_feedback').value:
-            feedback_method = self.feedback_callback
-        else:
-            feedback_method = None
-
-        # Send goal to action server
-        self.get_logger().warn(f'Sending goal [{pose2d.x:.2f}, {pose2d.y:.2f}]...')
-        self.send_goal_future_ = self.nav2_action_client_.send_goal_async(
-            action_goal,
-            feedback_callback=feedback_method)
-        self.send_goal_future_.add_done_callback(self.goal_response_callback)
-
->>>>>>> 15f55b8e661e9948d2e9910e6cefbf0f327dd78d
     def goal_response_callback(self, future):
         """The requested goal pose has been sent to the action server"""
 
@@ -713,11 +640,6 @@ class CaveExplorer(Node):
         else:
             self.get_logger().error('No valid planner selected')
             self.destroy_node()
-<<<<<<< HEAD
-=======
-
-
->>>>>>> 15f55b8e661e9948d2e9910e6cefbf0f327dd78d
         #######################################################
 
 def main():
