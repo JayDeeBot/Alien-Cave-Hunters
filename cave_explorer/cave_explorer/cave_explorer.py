@@ -293,7 +293,7 @@ class CaveExplorer(Node):
         self.ylim_ = [map_origin[1], map_origin[1]+map_height*map_resolution]
 
         self.latest_map_ = map_msg
-        self.path_planner.latest_map_ = map_msg  # forward map to PathPlanner
+        self.path_planner.latest_map_ = map_msg  #forward map to PathPlanner
 
         # self.get_logger().warn('Map received:')
         # self.get_logger().warn(f'  xlim = [{self.xlim_[0]:.2f}, {self.xlim_[1]:.2f}]')
@@ -564,7 +564,8 @@ class CaveExplorer(Node):
         
         #Set planner type to frontier
         if self.artifact_found_:
-            self.planner_type_ = PlannerType.ARTIFACT_EXPLORATION
+            self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
+            #self.planner_type_ = PlannerType.ARTIFACT_EXPLORATION
         else:
             self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
 
@@ -578,8 +579,10 @@ class CaveExplorer(Node):
             else:
                 self.get_logger().warn('No map received yet. Cannot perform frontier exploration.')
 
-        elif self.planner_type_ == PlannerType.ARTIFACT_EXPLORATION:
-            self.path_planner.artifact_exploration_step()
+        # elif self.planner_type_ == PlannerType.ARTIFACT_EXPLORATION:
+        #     done = self.path_planner.artifact_exploration_step()
+        #     if done:
+        #         self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
         else:
             self.get_logger().error('No valid planner selected')
 
