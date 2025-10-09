@@ -34,20 +34,20 @@ def generate_launch_description():
         parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time'),
                      'print_feedback': LaunchConfiguration('print_feedback'),
 
-                     ### Original Computer Vision Model ###
-                    'computer_vision_model_filename': PathJoinSubstitution(config_path+['stop_data.xml']),
+                    #  ### Original Computer Vision Model ###
+                    # 'computer_vision_model_filename': PathJoinSubstitution(config_path+['stop_data.xml']),
                     
-                    # ### Perception 2 ###
-                    # # --- YOLO params ---
-                    # 'yolo_model_path': PathJoinSubstitution(config_path+['best.pt']),
-                    # 'yolo_conf': 0.45,
-                    # 'yolo_iou': 0.50,
-                    # 'yolo_imgsz': 640,
-                    # 'yolo_classes': ['stop_sign','rock','panel','crate'],  # <- match data.yaml names
+                    ### Perception 2 ###
+                    # --- YOLO params ---
+                    'yolo_model_path': PathJoinSubstitution(config_path + ['best.pt']),
+                    'yolo_conf': 0.35,
+                    'yolo_iou': 0.50,
+                    'yolo_imgsz': 640,
+                    'yolo_classes': ['mushroom','green_crystal','alien','white_sphere','ice_castle','stop_sign'],
 
-                    # ### Perception 3 ###
-                    # # Enable depth-based localisation
-                    # 'use_depth_for_localisation': True
+                    ### Perception 3 ###
+                    # Enable depth-based localisation
+                    'use_depth_for_localisation': True,
 
                     }]
     )

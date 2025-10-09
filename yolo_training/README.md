@@ -54,7 +54,7 @@ yolo task=detect mode=train \
 
 ```bash
 yolo task=detect mode=val \
-  model=runs_cave/yolov8n_baseline3/weights/best.pt \
+  model=runs_cave/yolov8n_baseline/weights/best.pt \
   data=dataset/data.yaml \
   split=test
 ```

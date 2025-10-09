@@ -3,5 +3,5 @@ train: images/train
 val: images/val
 test: images/test   # optional
 
-nc: 4               # number of classes
-names: [mushroom, green_rock, alien, white_sphere, white_rock]
+nc: 6               # number of classes
+names: [mushroom, green_crystal, alien, white_sphere, ice_castle, stop_sign]

@@ -4,8 +4,9 @@ YOLO Label Maker GUI (Tkinter)
 - Iterates images in a folder
 - Loads classes from YAML
 - Single-class selection via exclusive checkboxes
-- Single bounding box per image (drag to draw/adjust)
+- Multiple bounding boxes per image (drag to draw; press D to delete last; C to clear all)
 - Saves YOLO txt labels (class_id cx cy w h), normalized to [0,1]
+- Supports negative images (creates an EMPTY .txt)
 
 Paths are set to your project structure.
 """
@@ -27,11 +28,11 @@ from PIL import Image, ImageTk  # pip install pillow
 # IMAGES_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/images/train") # Uncomment for training set 
 # LABELS_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/labels/train") # use 80/20 split training/validation
 
-# IMAGES_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/images/val") # Uncomment for validation set
-# LABELS_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/labels/val")
+IMAGES_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/images/val") # Uncomment for validation set
+LABELS_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/labels/val")
 
-IMAGES_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/images/test") # Uncomment for testing set
-LABELS_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/labels/test")
+# IMAGES_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/images/test") # Uncomment for testing set
+# LABELS_DIR = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/dataset/labels/test")
 
 CLASSES_YAML = Path("/home/jarred/git/Alien-Cave-Hunters/yolo_training/tools/classes.yaml")
 
@@ -60,59 +61,61 @@ def list_images(images_dir: Path) -> List[Path]:
     return files
 
 
-def yolo_save_label(label_path: Path, class_id: int, bbox_xyxy: Tuple[float, float, float, float], img_size: Tuple[int, int]):
+def yolo_save_label_lines(label_path: Path, lines: List[Tuple[int, float, float, float, float]]):
     """
-    bbox_xyxy: (x1, y1, x2, y2) in *original image coordinates*
-    img_size: (W, H)
+    Save multiple YOLO label lines.
+    Each entry: (class_id, cx_n, cy_n, w_n, h_n) already normalized.
     """
-    W, H = img_size
-    x1, y1, x2, y2 = bbox_xyxy
-
-    # Clamp to image bounds
-    x1 = max(0, min(x1, W - 1))
-    x2 = max(1, min(x2, W))
-    y1 = max(0, min(y1, H - 1))
-    y2 = max(1, min(y2, H))
-
-    # Ensure proper ordering
-    if x2 < x1:
-        x1, x2 = x2, x1
-    if y2 < y1:
-        y1, y2 = y2, y1
-
-    w = x2 - x1
-    h = y2 - y1
-    cx = x1 + w / 2.0
-    cy = y1 + h / 2.0
-
-    # Normalize
-    cx_n = cx / W
-    cy_n = cy / H
-    w_n = w / W
-    h_n = h / H
-
     label_path.parent.mkdir(parents=True, exist_ok=True)
     with open(label_path, "w") as f:
-        f.write(f"{class_id} {cx_n:.6f} {cy_n:.6f} {w_n:.6f} {h_n:.6f}\n")
+        for cid, cx, cy, w, h in lines:
+            f.write(f"{cid} {cx:.6f} {cy:.6f} {w:.6f} {h:.6f}\n")
 
 
-def yolo_load_label(label_path: Path) -> Optional[Tuple[int, Tuple[float, float, float, float]]]:
+def yolo_load_label_lines(label_path: Path) -> Optional[List[Tuple[int, float, float, float, float]]]:
     """
-    Returns (class_id, (cx, cy, w, h)) normalized, or None if not exists.
+    Load all YOLO label lines.
+    Returns list of (class_id, cx, cy, w, h) normalized, or:
+      - [] if file exists but is empty (negative image)
+      - None if file does not exist or parsing fails
     """
     if not label_path.exists():
         return None
     try:
         with open(label_path, "r") as f:
-            line = f.readline().strip()
-        parts = line.split()
-        if len(parts) != 5:
-            return None
-        cid = int(parts[0])
-        cx, cy, w, h = map(float, parts[1:])
-        return cid, (cx, cy, w, h)
+            content = f.read().strip()
+        if content == "":
+            return []  # Explicit negative
+        lines = []
+        for line in content.splitlines():
+            parts = line.split()
+            if len(parts) != 5:
+                return None
+            cid = int(parts[0])
+            cx, cy, w, h = map(float, parts[1:])
+            lines.append((cid, cx, cy, w, h))
+        return lines
     except Exception:
         return None
+
+
+def yolo_save_empty_label(label_path: Path):
+    """
+    Creates an empty YOLO label file for negative images (no objects).
+    """
+    label_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(label_path, "w"):
+        pass
+
+
+def yolo_is_empty_label(label_path: Path) -> bool:
+    """
+    Returns True if the label file exists and is empty (negative image).
+    """
+    try:
+        return label_path.exists() and label_path.stat().st_size == 0
+    except Exception:
+        return False
 
 
 class LabelGUI:
@@ -133,14 +136,23 @@ class LabelGUI:
         self.tk_img: Optional[ImageTk.PhotoImage] = None
         self.scale_x = 1.0
         self.scale_y = 1.0
-        self.current_bbox_canvas = None  # canvas rectangle id
+
+        # Canvas-drawing state
         self.dragging = False
         self.start_xy = (0, 0)
         self.end_xy = (0, 0)
+        self.temp_bbox_canvas = None  # transient rectangle while dragging
+
+        # Multi-box storage: each item is dict with
+        # {"cid": int, "xyxy_img": (x1,y1,x2,y2), "rect_id": int}
+        self.boxes: List[dict] = []
 
         # Selected class (exclusive checkboxes behavior)
         self.selected_class_id: Optional[int] = None
         self.class_vars: List[tk.IntVar] = [tk.IntVar(value=0) for _ in self.class_names]
+
+        # Negative-image toggle (no artefact / empty label)
+        self.negative_var = tk.IntVar(value=0)
 
         # Layout
         self._build_widgets()
@@ -173,6 +185,7 @@ class LabelGUI:
         classes_frame = ttk.LabelFrame(right, text="Classes")
         classes_frame.pack(fill=tk.X, padx=8, pady=8)
 
+        self.class_checkbuttons: List[ttk.Checkbutton] = []
         for i, name in enumerate(self.class_names):
             cb = ttk.Checkbutton(
                 classes_frame,
@@ -181,6 +194,18 @@ class LabelGUI:
                 command=lambda i=i: self.on_class_toggle(i)
             )
             cb.pack(anchor="w", padx=8, pady=2)
+            self.class_checkbuttons.append(cb)
+
+        # Negative (no-artefact) toggle
+        neg_frame = ttk.LabelFrame(right, text="Negative Image")
+        neg_frame.pack(fill=tk.X, padx=8, pady=(0, 8))
+        self.neg_cb = ttk.Checkbutton(
+            neg_frame,
+            text="No artefact present (create empty label)",
+            variable=self.negative_var,
+            command=self.on_negative_toggle
+        )
+        self.neg_cb.pack(anchor="w", padx=8, pady=4)
 
         # Buttons
         btn_frame = ttk.Frame(right)
@@ -189,14 +214,17 @@ class LabelGUI:
         self.btn_save = ttk.Button(btn_frame, text="Save (S)", command=self.save_label)
         self.btn_save.grid(row=0, column=0, padx=4, pady=4, sticky="ew")
 
-        self.btn_clear = ttk.Button(btn_frame, text="Clear Box (C)", command=self.clear_bbox)
+        self.btn_clear = ttk.Button(btn_frame, text="Clear All Boxes (C)", command=self.clear_all_boxes)
         self.btn_clear.grid(row=0, column=1, padx=4, pady=4, sticky="ew")
 
+        self.btn_del_last = ttk.Button(btn_frame, text="Delete Last (D)", command=self.delete_last_box)
+        self.btn_del_last.grid(row=1, column=0, padx=4, pady=4, sticky="ew")
+
         self.btn_prev = ttk.Button(btn_frame, text="Prev (P)", command=self.prev_image)
-        self.btn_prev.grid(row=1, column=0, padx=4, pady=4, sticky="ew")
+        self.btn_prev.grid(row=1, column=1, padx=4, pady=4, sticky="ew")
 
         self.btn_next = ttk.Button(btn_frame, text="Next (N)", command=self.next_image)
-        self.btn_next.grid(row=1, column=1, padx=4, pady=4, sticky="ew")
+        self.btn_next.grid(row=2, column=0, padx=4, pady=4, sticky="ew")
 
         # Status
         self.status = ttk.Label(right, text="", foreground="#08a", justify=tk.LEFT)
@@ -209,26 +237,52 @@ class LabelGUI:
         self.master.bind("<Key-N>", lambda e: self.next_image())
         self.master.bind("<Key-p>", lambda e: self.prev_image())
         self.master.bind("<Key-P>", lambda e: self.prev_image())
-        self.master.bind("<Key-c>", lambda e: self.clear_bbox())
-        self.master.bind("<Key-C>", lambda e: self.clear_bbox())
+        self.master.bind("<Key-c>", lambda e: self.clear_all_boxes())
+        self.master.bind("<Key-C>", lambda e: self.clear_all_boxes())
+        self.master.bind("<Key-d>", lambda e: self.delete_last_box())
+        self.master.bind("<Key-D>", lambda e: self.delete_last_box())
+        # Toggle negative label
+        self.master.bind("<Key-z>", lambda e: self.neg_cb.invoke())
+        self.master.bind("<Key-Z>", lambda e: self.neg_cb.invoke())
 
     # ---------------------- Class selection logic ----------------------
     def on_class_toggle(self, i: int):
         """Exclusive behavior: only one checkbox can be active at a time."""
+        # If negative is enabled, ignore class toggles
+        if self.negative_var.get() == 1:
+            self.class_vars[i].set(0)
+            return
+
         if self.class_vars[i].get() == 1:
-            # turn off all others
             for j, var in enumerate(self.class_vars):
                 if j != i:
                     var.set(0)
             self.selected_class_id = i
         else:
-            # user unchecked the selected one
             self.selected_class_id = None
 
     def set_selected_class(self, class_id: Optional[int]):
         for i, var in enumerate(self.class_vars):
             var.set(1 if class_id is not None and i == class_id else 0)
         self.selected_class_id = class_id
+
+    def on_negative_toggle(self):
+        """
+        When 'No artefact present' is toggled:
+        - If ON: clear temp bbox, disable classes, block drawing, and clear any existing boxes.
+        - If OFF: re-enable class selection and drawing.
+        """
+        if self.negative_var.get() == 1:
+            self.set_selected_class(None)
+            self.clear_all_boxes()
+            self._clear_temp_rect()
+            for cb in self.class_checkbuttons:
+                cb.state(["disabled"])
+            self.status.config(text="Negative mode: will save an EMPTY label file.")
+        else:
+            for cb in self.class_checkbuttons:
+                cb.state(["!disabled"])
+            self.status.config(text="")
 
     # ---------------------- Image loading & scaling ----------------------
     def load_image(self, idx: int):
@@ -249,79 +303,159 @@ class LabelGUI:
         self.tk_img = ImageTk.PhotoImage(disp_img)
 
         self.canvas.delete("all")
-        self.current_bbox_canvas = None
+        self._clear_temp_rect()
+        self.boxes.clear()  # clear all persistent boxes
         self.canvas.create_image((MAX_CANVAS_W // 2, MAX_CANVAS_H // 2), image=self.tk_img, anchor="center")
 
         # Centering offsets for drawing and mapping canvas→image
         self.offset_x = (MAX_CANVAS_W - disp_w) // 2
         self.offset_y = (MAX_CANVAS_H - disp_h) // 2
 
+        # Reset negative toggle and classes by default
+        self.negative_var.set(0)
+        self.on_negative_toggle()  # ensures UI state (enables classes)
+
         # Show info
         self.info_lbl.config(text=f"Image {self.idx+1}/{len(self.images)}\n{img_path.name}  ({W}×{H})")
         self.status.config(text="")
 
-        # If label exists, load and draw it
+        # Load labels (multiple or empty)
         lbl_path = self.label_path_for(img_path)
-        loaded = yolo_load_label(lbl_path)
-        if loaded:
-            cid, (cx, cy, w, h) = loaded
-            # convert normalized to original xyxy
+        lines = yolo_load_label_lines(lbl_path)
+        if lines is None:
+            # No label present
+            return
+        if len(lines) == 0:
+            # Empty = negative
+            self.negative_var.set(1)
+            self.on_negative_toggle()
+            self.status.config(text="Loaded existing EMPTY label (negative).")
+            return
+
+        # Recreate all boxes
+        for cid, cx, cy, w, h in lines:
             x1 = (cx - w / 2.0) * W
             y1 = (cy - h / 2.0) * H
             x2 = (cx + w / 2.0) * W
             y2 = (cy + h / 2.0) * H
-            # map to canvas coords
             c1x = self.offset_x + int(x1 * self.scale_x)
             c1y = self.offset_y + int(y1 * self.scale_y)
             c2x = self.offset_x + int(x2 * self.scale_x)
             c2y = self.offset_y + int(y2 * self.scale_y)
-            self.draw_or_update_bbox((c1x, c1y), (c2x, c2y))
-            self.set_selected_class(cid)
-            self.status.config(text=f"Loaded existing label: class={cid}")
+            rect_id = self._draw_persistent_rect(c1x, c1y, c2x, c2y)
+            self.boxes.append({"cid": cid, "xyxy_img": (x1, y1, x2, y2), "rect_id": rect_id})
+        self.status.config(text=f"Loaded {len(self.boxes)} existing box(es).")
 
     def label_path_for(self, img_path: Path) -> Path:
         return LABELS_DIR / (img_path.stem + ".txt")
 
-    # ---------------------- BBox drawing ----------------------
+    # ---------------------- BBox drawing helpers ----------------------
+    def _draw_persistent_rect(self, x1c: int, y1c: int, x2c: int, y2c: int) -> int:
+        """Draw a rectangle that represents a saved box (green)."""
+        return self.canvas.create_rectangle(x1c, y1c, x2c, y2c, outline="#00ff00", width=2)
+
+    def _draw_or_update_temp_rect(self, p1: Tuple[int,int], p2: Tuple[int,int]):
+        """Draw/update a temporary rectangle while dragging (cyan)."""
+        x1, y1 = p1
+        x2, y2 = p2
+        x1 = max(0, min(x1, MAX_CANVAS_W))
+        x2 = max(0, min(x2, MAX_CANVAS_W))
+        y1 = max(0, min(y1, MAX_CANVAS_H))
+        y2 = max(0, min(y2, MAX_CANVAS_H))
+        if self.temp_bbox_canvas is None:
+            self.temp_bbox_canvas = self.canvas.create_rectangle(x1, y1, x2, y2, outline="#00ffff", width=2, dash=(4, 2))
+        else:
+            self.canvas.coords(self.temp_bbox_canvas, x1, y1, x2, y2)
+
+    def _clear_temp_rect(self):
+        if self.temp_bbox_canvas is not None:
+            self.canvas.delete(self.temp_bbox_canvas)
+            self.temp_bbox_canvas = None
+
+    # ---------------------- Mouse events ----------------------
     def on_press(self, event):
-        if not self.tk_img:
+        if not self.tk_img or self.negative_var.get() == 1:
+            return
+        # Must have a class selected before drawing
+        if self.selected_class_id is None:
+            self.status.config(text="Select a class before drawing a box.")
             return
         self.dragging = True
         self.start_xy = (event.x, event.y)
         self.end_xy = (event.x, event.y)
-        self.draw_or_update_bbox(self.start_xy, self.end_xy)
+        self._draw_or_update_temp_rect(self.start_xy, self.end_xy)
 
     def on_drag(self, event):
         if not self.dragging:
             return
+        if self.negative_var.get() == 1:
+            return
         self.end_xy = (event.x, event.y)
-        self.draw_or_update_bbox(self.start_xy, self.end_xy)
+        self._draw_or_update_temp_rect(self.start_xy, self.end_xy)
 
     def on_release(self, event):
         if not self.dragging:
             return
         self.dragging = False
+        if self.negative_var.get() == 1:
+            return
         self.end_xy = (event.x, event.y)
-        self.draw_or_update_bbox(self.start_xy, self.end_xy)
+        self._draw_or_update_temp_rect(self.start_xy, self.end_xy)
 
-    def draw_or_update_bbox(self, p1: Tuple[int,int], p2: Tuple[int,int]):
-        x1, y1 = p1
-        x2, y2 = p2
-        # keep within canvas
-        x1 = max(0, min(x1, MAX_CANVAS_W))
-        x2 = max(0, min(x2, MAX_CANVAS_W))
-        y1 = max(0, min(y1, MAX_CANVAS_H))
-        y2 = max(0, min(y2, MAX_CANVAS_H))
-        if self.current_bbox_canvas is None:
-            self.current_bbox_canvas = self.canvas.create_rectangle(x1, y1, x2, y2, outline="#00ff00", width=2)
-        else:
-            self.canvas.coords(self.current_bbox_canvas, x1, y1, x2, y2)
+        # Finalize box: convert canvas coords to original image coords and store
+        x1c, y1c = self.start_xy
+        x2c, y2c = self.end_xy
+        x1c, x2c = min(x1c, x2c), max(x1c, x2c)
+        y1c, y2c = min(y1c, y2c), max(y1c, y2c)
 
-    def clear_bbox(self):
-        if self.current_bbox_canvas is not None:
-            self.canvas.delete(self.current_bbox_canvas)
-            self.current_bbox_canvas = None
-        self.status.config(text="Cleared bounding box.")
+        # Ignore tiny/zero-size boxes
+        if abs(x2c - x1c) < 2 or abs(y2c - y1c) < 2:
+            self._clear_temp_rect()
+            return
+
+        # convert canvas -> original image coordinates
+        W, H = self.orig_img.size
+        x1i = (x1c - self.offset_x) / self.scale_x
+        y1i = (y1c - self.offset_y) / self.scale_y
+        x2i = (x2c - self.offset_x) / self.scale_x
+        y2i = (y2c - self.offset_y) / self.scale_y
+
+        # Clamp to original image bounds
+        x1i = max(0, min(x1i, W - 1))
+        x2i = max(1, min(x2i, W))
+        y1i = max(0, min(y1i, H - 1))
+        y2i = max(1, min(y2i, H))
+
+        # Persist the rectangle (green) and clear the temp cyan one
+        rect_id = self._draw_persistent_rect(x1c, y1c, x2c, y2c)
+        self._clear_temp_rect()
+
+        # Store persistent box
+        self.boxes.append({"cid": self.selected_class_id, "xyxy_img": (x1i, y1i, x2i, y2i), "rect_id": rect_id})
+        self.status.config(text=f"Added box #{len(self.boxes)} (class={self.selected_class_id}).")
+
+    # ---------------------- Box management ----------------------
+    def clear_all_boxes(self):
+        """Remove all persistent boxes from canvas and memory."""
+        for b in self.boxes:
+            try:
+                self.canvas.delete(b["rect_id"])
+            except Exception:
+                pass
+        self.boxes.clear()
+        self.status.config(text="Cleared all boxes.")
+
+    def delete_last_box(self):
+        """Remove the most recently added box (LIFO)."""
+        if not self.boxes:
+            self.status.config(text="No boxes to delete.")
+            return
+        last = self.boxes.pop()
+        try:
+            self.canvas.delete(last["rect_id"])
+        except Exception:
+            pass
+        self.status.config(text=f"Deleted last box. {len(self.boxes)} remaining.")
 
     # ---------------------- Navigation & Save ----------------------
     def prev_image(self):
@@ -333,37 +467,44 @@ class LabelGUI:
             self.load_image(self.idx + 1)
 
     def save_label(self):
-        if self.selected_class_id is None:
-            messagebox.showwarning("Missing class", "Please select a class before saving.")
-            return
-        if self.current_bbox_canvas is None:
-            messagebox.showwarning("Missing box", "Please draw a bounding box before saving.")
-            return
-
-        coords = self.canvas.coords(self.current_bbox_canvas)  # [x1,y1,x2,y2] in canvas coords
-        x1c, y1c, x2c, y2c = coords
-        # ensure order
-        x1c, x2c = min(x1c, x2c), max(x1c, x2c)
-        y1c, y2c = min(y1c, y2c), max(y1c, y2c)
-
-        # convert canvas -> original image coordinates
-        x1i = (x1c - self.offset_x) / self.scale_x
-        y1i = (y1c - self.offset_y) / self.scale_y
-        x2i = (x2c - self.offset_x) / self.scale_x
-        y2i = (y2c - self.offset_y) / self.scale_y
-
-        # Clamp to original image bounds
-        W, H = self.orig_img.size
-        x1i = max(0, min(x1i, W - 1))
-        x2i = max(1, min(x2i, W))
-        y1i = max(0, min(y1i, H - 1))
-        y2i = max(1, min(y2i, H))
-
         img_path = self.images[self.idx]
         label_path = self.label_path_for(img_path)
 
-        yolo_save_label(label_path, self.selected_class_id, (x1i, y1i, x2i, y2i), (W, H))
-        self.status.config(text=f"Saved: {label_path.name}")
+        # Negative: save empty file and advance.
+        if self.negative_var.get() == 1:
+            yolo_save_empty_label(label_path)
+            self.status.config(text=f"Saved EMPTY label: {label_path.name}")
+            if self.idx < len(self.images) - 1:
+                self.load_image(self.idx + 1)
+            return
+
+        # Must have at least one box
+        if not self.boxes:
+            messagebox.showwarning("Missing boxes", "Please draw at least one bounding box or toggle Negative.")
+            return
+
+        # Build label lines (normalized)
+        W, H = self.orig_img.size
+        lines = []
+        for b in self.boxes:
+            cid = b["cid"]
+            if cid is None:
+                messagebox.showwarning("Missing class", "One or more boxes have no class selected.")
+                return
+            x1, y1, x2, y2 = b["xyxy_img"]
+            w = x2 - x1
+            h = y2 - y1
+            cx = x1 + w / 2.0
+            cy = y1 + h / 2.0
+            cx_n = cx / W
+            cy_n = cy / H
+            w_n = w / W
+            h_n = h / H
+            lines.append((cid, cx_n, cy_n, w_n, h_n))
+
+        yolo_save_label_lines(label_path, lines)
+        self.status.config(text=f"Saved {len(lines)} box(es): {label_path.name}")
+
         # Auto-advance
         if self.idx < len(self.images) - 1:
             self.load_image(self.idx + 1)

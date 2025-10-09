@@ -1,15 +1,26 @@
 #!/usr/bin/env python3
 
 # ### Perception 2 Imports ###
-# import numpy as np
-# from sensor_msgs.msg import CameraInfo
+import numpy as np
+from sensor_msgs.msg import CameraInfo
 
-# try:
-#     from ultralytics import YOLO
-#     _HAS_YOLO = True
-# except Exception as e:
-#     _HAS_YOLO = False
-# ### --------------------- ###
+try:
+    from ultralytics import YOLO
+    _HAS_YOLO = True
+except Exception as e:
+    _HAS_YOLO = False
+### --------------------- ###
+
+### Perception 3 Imports ###
+from geometry_msgs.msg import PointStamped
+import time
+from rclpy.duration import Duration
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
+import tf2_geometry_msgs  # <-- add this line (side-effect registers PointStamped)
+
+from dataclasses import dataclass, field
+### --------------------- ###
+
 
 import math
 import random
@@ -67,6 +78,45 @@ class PlannerType(Enum):
     FRONTIER_EXPLORATION = 6
     ARTIFACT_EXPLORATION = 7
     # Add more!
+
+# --- Perception 3: Artifact record (no Kalman, simple merge) ---
+@dataclass
+class Artifact:
+    """
+    Minimal world-coordinate artifact record.
+
+    We maintain:
+      - (x, y): fused position in map frame
+      - votes: {class_name: count} for majority voting
+      - n: total detections merged at this location
+      - last_update: timestamp for housekeeping
+    Fusion uses a lightweight EMA (alpha) to keep points stable.
+    """
+    id: int
+    x: float
+    y: float
+    votes: dict = field(default_factory=dict)  # {cls_name: count}
+    n: int = 0                                  # total detections fused here
+    last_update: float = 0.0
+
+    @property
+    def cls(self) -> str:
+        """Majority class at this location."""
+        if not self.votes:
+            return "unknown"
+        return max(self.votes.items(), key=lambda kv: kv[1])[0]
+
+    def add(self, x: float, y: float, cls_name: str, alpha: float = 0.5):
+        """
+        Fuse position with a simple EMA (keeps it stable and cheap).
+        alpha is the weight of the new measurement.
+        """
+        self.x = (1.0 - alpha) * self.x + alpha * x
+        self.y = (1.0 - alpha) * self.y + alpha * y
+        self.votes[cls_name] = self.votes.get(cls_name, 0) + 1
+        self.n += 1
+        self.last_update = time.time()
+# --- end Perception 3 ---
 
 class CaveExplorer(Node):
     def __init__(self):
@@ -134,56 +184,92 @@ class CaveExplorer(Node):
         # Publisher for the goal pose visualisation
         self.goal_pose_vis_ = self.create_publisher(PoseStamped, 'goal_pose', 1)
 
+        # QoS profile for image and camera info subscriptions
+        sensor_qos = QoSProfile(
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=10
+        )
+
         # Subscribe to the map topic to get current bounds
         self.map_sub_ = self.create_subscription(OccupancyGrid, 'map',  self.map_callback, 1)
 
         # Prepare image processing
         self.image_detections_pub_ = self.create_publisher(Image, 'detections_image', 1)
 
-        ### Original Computer Vision Model ###
-        self.declare_parameter('computer_vision_model_filename', rclpy.Parameter.Type.STRING)
-        self.computer_vision_model_ = cv2.CascadeClassifier(self.get_parameter('computer_vision_model_filename').value)
-        ### --------------------- ###
-
-        # ### Perception 2 ###
-        # self.declare_parameter('yolo_model_path', rclpy.Parameter.Type.STRING)
-        # self.declare_parameter('yolo_conf', rclpy.Parameter.Type.DOUBLE)
-        # self.declare_parameter('yolo_iou', rclpy.Parameter.Type.DOUBLE)
-        # self.declare_parameter('yolo_imgsz', rclpy.Parameter.Type.INTEGER)
-        # self.declare_parameter('yolo_classes', rclpy.Parameter.Type.STRING_ARRAY)
-
-        # self.yolo_conf  = float(self.get_parameter('yolo_conf').value)
-        # self.yolo_iou   = float(self.get_parameter('yolo_iou').value)
-        # self.yolo_imgsz = int(self.get_parameter('yolo_imgsz').value)
-        # self.class_names = list(self.get_parameter('yolo_classes').value)
-        # self.use_depth_for_localisation = bool(self.get_parameter('use_depth_for_localisation').value)
-
-        # # Load YOLO model
-        # self.yolo_model = None
-        # if _HAS_YOLO:
-        #     try:
-        #         model_path = self.get_parameter('yolo_model_path').value
-        #         self.yolo_model = YOLO(model_path)
-        #         self.get_logger().warn(f"Loaded YOLO model: {model_path}")
-        #     except Exception as e:
-        #         self.get_logger().error(f"Failed to load YOLO: {e}")
-        # else:
-        #     self.get_logger().error("Ultralytics not installed. `pip install ultralytics`")
+        # ### Original Computer Vision Model ###
+        # self.declare_parameter('computer_vision_model_filename', rclpy.Parameter.Type.STRING)
+        # self.computer_vision_model_ = cv2.CascadeClassifier(self.get_parameter('computer_vision_model_filename').value)
         # ### --------------------- ###
 
-        # ### Perception 3 ###
-        # self.declare_parameter('use_depth_for_localisation', rclpy.Parameter.Type.BOOL)
-        # self.camera_info = None
-        # self.fx = self.fy = self.cx = self.cy = None
-        # self.create_subscription(CameraInfo, 'camera/camera_info', self.camera_info_cb, 1)
-        # self.depth_sub_ = self.create_subscription(Image, 'camera/depth/image', self.depth_callback, 1)
-        # self.latest_depth = None
-        # ### --------------------- ###
+        # --- Perception 2: YOLO setup ---
+        # Declare YOLO params (set from launch)
+        self.declare_parameter('yolo_model_path', rclpy.Parameter.Type.STRING)
+        self.declare_parameter('yolo_conf', rclpy.Parameter.Type.DOUBLE)
+        self.declare_parameter('yolo_iou', rclpy.Parameter.Type.DOUBLE)
+        self.declare_parameter('yolo_imgsz', rclpy.Parameter.Type.INTEGER)
+        self.declare_parameter('yolo_classes', rclpy.Parameter.Type.STRING_ARRAY)
+        self.declare_parameter('use_depth_for_localisation', False)
+
+        # Read params
+        self.yolo_conf  = float(self.get_parameter('yolo_conf').value)
+        self.yolo_iou   = float(self.get_parameter('yolo_iou').value)
+        self.yolo_imgsz = int(self.get_parameter('yolo_imgsz').value)
+        self.class_names = list(self.get_parameter('yolo_classes').value)
+        self.use_depth_for_localisation = bool(self.get_parameter('use_depth_for_localisation').value)
+
+        # Subscribe to camera (adjust topic elsewhere if needed)
+        self.image_msgs_seen = 0
+        self.image_sub_ = self.create_subscription(Image, 'camera/image', self.image_callback, sensor_qos)
+
+        # Load YOLO model (CPU first; switch to CUDA later if desired)
+        self.yolo_model = None
+        if _HAS_YOLO:
+            try:
+                model_path = self.get_parameter('yolo_model_path').value
+                self.yolo_model = YOLO(model_path)
+                self.get_logger().warn(f"[YOLO] Loaded model: {model_path}")
+                try:
+                    self.get_logger().warn(f"[YOLO] model.names: {self.yolo_model.names}")
+                except Exception:
+                    pass
+                if self.class_names:
+                    self.get_logger().warn(f"[YOLO] class_names (param): {self.class_names}")
+            except Exception as e:
+                self.get_logger().error(f"[YOLO] Failed to load model: {e}")
+        else:
+            self.get_logger().error("[YOLO] Ultralytics not installed. Try: python3 -m pip install --user ultralytics opencv-python")
+        # --- end Perception 2 ---
+
+        # --- Perception 3: intrinsics & depth ---
+        self.declare_parameter('use_manual_intrinsics', True)         # default True since your topic is missing
+        self.declare_parameter('camera_hfov_deg', 90.0)               # horizontal FOV in degrees (adjust if known)
+        self.use_manual_intrinsics = bool(self.get_parameter('use_manual_intrinsics').value)
+        self.camera_hfov_deg = float(self.get_parameter('camera_hfov_deg').value)
+        self.camera_info = None
+        self.fx = self.fy = self.cx = self.cy = None
+        self.latest_depth = None
+        self.last_depth_header = None
+        self.depth_w = self.depth_h = None
+        self.last_image_header = None
+        self.camera_frame_id = None  # set from CameraInfo or image header
+
+        # Subscribe to camera info and depth image
+        self.camera_info_sub_ = self.create_subscription(
+            CameraInfo, 'camera/camera_info', self.camera_info_cb, sensor_qos
+        )
+        self.depth_sub_ = self.create_subscription(
+            Image, 'camera/depth/image', self.depth_callback, sensor_qos
+        )
+
+        # --- Perception 3: simple artifacts store (fresh every run) ---
+        self.artifacts: list[Artifact] = []
+        self.next_artifact_id = 1
+        self.merge_dist_m = 1.5  # meters; detections within this distance are merged
+        # --- end Perception 3 ---
 
         # Cache detections for planning/localisation
         self.latest_detections = []  # list of dicts per frame
-
-        self.image_sub_ = self.create_subscription(Image, 'camera/image', self.image_callback, 1)
 
         # Timer for main loop
         if self.use_classic:
@@ -191,18 +277,120 @@ class CaveExplorer(Node):
         else:
             self.main_loop_timer_ = self.create_timer(0.2, self.main_loop)
 
-    # ### Perception 3 ###
-    # def camera_info_cb(self, msg: CameraInfo):
-    #     self.camera_info = msg
-    #     self.fx = msg.k[0]; self.fy = msg.k[4]
-    #     self.cx = msg.k[2]; self.cy = msg.k[5]
+    ### Perception 3 ###
+    def _upsert_artifact(self, x: float, y: float, cls_name: str):
+        """
+        If a stored artifact is within self.merge_dist_m of (x,y), fuse into it and
+        add a vote for cls_name. Otherwise create a new artifact.
+        """
+        best = None
+        best_d = 1e9
+        for a in self.artifacts:
+            d = math.hypot(a.x - x, a.y - y)
+            if d < best_d:
+                best = a
+                best_d = d
 
-    # def depth_callback(self, msg: Image):
-    #     depth = self.cv_bridge_.imgmsg_to_cv2(msg, desired_encoding='passthrough')
-    #     if depth is not None and depth.dtype != np.float32:
-    #         depth = depth.astype(np.float32)
-    #     self.latest_depth = depth
-    # ### --------------------- ###
+        if best is not None and best_d <= self.merge_dist_m:
+            best.add(x, y, cls_name, alpha=0.5)
+            return best
+        else:
+            a = Artifact(self.next_artifact_id, x, y)
+            a.add(x, y, cls_name, alpha=1.0)  # initialize exactly at measurement
+            self.next_artifact_id += 1
+            self.artifacts.append(a)
+            return a
+    
+    def camera_info_cb(self, msg: CameraInfo):
+        self.camera_info = msg
+        self.fx = msg.k[0]; self.fy = msg.k[4]
+        self.cx = msg.k[2]; self.cy = msg.k[5]
+        self.camera_frame_id = msg.header.frame_id or "camera_link"
+        if self.use_depth_for_localisation and self.last_depth_header is not None:
+            if (msg.header.frame_id or '') != (self.last_depth_header.frame_id or ''):
+                self.get_logger().warn(
+                    f"[Intrinsics] camera_info frame ({msg.header.frame_id}) != depth frame "
+                    f"({self.last_depth_header.frame_id}). Use a camera_info for the depth stream or an aligned depth topic."
+                )
+
+    def depth_callback(self, msg: Image):
+        depth = self.cv_bridge_.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+        if depth is None:
+            self.latest_depth = None
+            self.last_depth_header = None
+            return
+        if depth.dtype == np.uint16:
+            depth = depth.astype(np.float32) * 0.001  # mm -> m
+        elif depth.dtype != np.float32:
+            depth = depth.astype(np.float32)
+        self.latest_depth = depth
+        self.depth_h, self.depth_w = depth.shape[:2]
+        self.last_depth_header = msg.header
+        # Prefer the depth frame as the camera frame when using depth
+        if self.use_depth_for_localisation:
+            self.camera_frame_id = (msg.header.frame_id or self.camera_frame_id)
+
+    def _project_pixel_to_ray(self, u: float, v: float):
+        """Return a (unit-ish) ray direction in camera frame for pixel (u,v)."""
+        if not all([self.fx, self.fy, self.cx, self.cy]):
+            return None
+        x = (u - self.cx) / self.fx
+        y = (v - self.cy) / self.fy
+        z = 1.0
+        norm = math.sqrt(x*x + y*y + z*z)
+        return (x / norm, y / norm, z / norm)
+
+    def _depth_at(self, depth_img: np.ndarray, box_xyxy, fallback_center):
+        """
+        Robust depth: median inside a small central window of the detection.
+        box_xyxy: [x1,y1,x2,y2]; fallback_center: (u,v).
+        Returns depth in meters or None.
+        """
+        if depth_img is None:
+            return None
+        h, w = depth_img.shape[:2]
+        x1,y1,x2,y2 = box_xyxy
+        u0 = int((x1 + x2) * 0.5); v0 = int((y1 + y2) * 0.5)
+        # Small window around center (clip to image)
+        k = 5
+        u1 = max(0, u0 - k); u2 = min(w-1, u0 + k)
+        v1 = max(0, v0 - k); v2 = min(h-1, v0 + k)
+        patch = depth_img[v1:v2+1, u1:u2+1]
+        if patch.size == 0:
+            u0, v0 = map(int, fallback_center)
+            if 0 <= v0 < h and 0 <= u0 < w:
+                d = float(depth_img[v0, u0])
+                return d if d > 0 else None
+            return None
+        vals = patch.reshape(-1)
+        vals = vals[np.isfinite(vals)]
+        vals = vals[vals > 0]
+        if vals.size == 0:
+            return None
+        return float(np.median(vals))
+
+    def _transform_cam_point_to_map(self, px, py, pz, stamp_msg, cam_frame: str):
+        """TF transform a camera-frame 3D point to map frame."""
+        ps = PointStamped()
+        ps.header.frame_id = cam_frame
+        ps.header.stamp = stamp_msg  # try with the image time first
+        ps.point.x = float(px); ps.point.y = float(py); ps.point.z = float(pz)
+
+        try:
+            return self.tf_buffer.transform(
+                ps, 'map', timeout=Duration(seconds=0.5)
+            ).point
+        except Exception as e1:
+            # Fallback: try again with "latest" time (now) in case of cache miss
+            try:
+                ps.header.stamp = self.get_clock().now().to_msg()
+                return self.tf_buffer.transform(
+                    ps, 'map', timeout=Duration(seconds=0.5)
+                ).point
+            except Exception as e2:
+                self.get_logger().warn(f"TF transform failed (stamped & latest): {e1} | {e2}")
+                return None
+    ### --------------------- ###
     
     def get_pose_2d(self):
         """Get the 2d pose of the robot"""
@@ -236,43 +424,130 @@ class CaveExplorer(Node):
     
     def localise_artifact(self):
         """
-        INCOMPLETE:
-        Compute the location of the artifact
-        Save it to a list, publish rviz marker
-        This version just uses the robot location rather than the artifact location
-        You can find other examples of using RViz markers in the previous assignments template code
+        Compute artifact locations in the map frame using:
+        - pixel center of each detection (u,v)
+        - depth median in a small window around the box center
+        - camera intrinsics (fx, fy, cx, cy)
+        - TF transform from camera frame to 'map'
+
+        Each measurement is merged into an artifact bucket if within self.merge_dist_m.
+        Class is decided by majority vote over all detections at that location.
         """
-
-        # Current location of the robot
-        robot_pose = self.get_pose_2d()
-
-        if robot_pose == None:
-            self.get_logger().warn(f'localise_artifact: robot_pose is None.')
+        # Preconditions (keep this lightweight)
+        intrinsics_ready = all([self.fx, self.fy, self.cx, self.cy])
+        if not intrinsics_ready:
+            self.get_logger().warn("[Artifacts] Missing intrinsics (fx,fy,cx,cy).")
+            return
+        if self.use_depth_for_localisation and self.latest_depth is None:
+            self.get_logger().warn("[Artifacts] No depth yet.")
+            return
+        if not self.latest_detections:
             return
 
-        # Compute the location of the artifact
-        # This is currently INCOMPLETE
-        point = Point()
-        point.x = robot_pose.x
-        point.y = robot_pose.y
-        point.z = 1.0
+        # Choose stamp/frame: depth if we rely on depth, otherwise image header
+        if self.use_depth_for_localisation and self.last_depth_header is not None:
+            stamp_for_tf = self.last_depth_header.stamp
+            cam_frame = (self.last_depth_header.frame_id or
+                        self.camera_frame_id or
+                        (self.last_image_header.frame_id if self.last_image_header else 'camera_link'))
+        else:
+            stamp_for_tf = (self.last_image_header.stamp if self.last_image_header else self.get_clock().now().to_msg())
+            cam_frame = (self.camera_frame_id or
+                        (self.last_image_header.frame_id if self.last_image_header else 'camera_link'))
 
-        # Save it
-        self.artifact_locations_.append(point)
+        updates = 0
+        for det in self.latest_detections:
+            x1, y1, x2, y2 = det["xyxy"]
+            u = 0.5 * (x1 + x2); v = 0.5 * (y1 + y2)
 
-        # Publish the markers
-        self.publish_artifact_markers()
+            # ray direction in camera frame
+            ray = self._project_pixel_to_ray(u, v)
+            if ray is None:
+                continue
+
+            # depth at box center (median in small window). If depth use is disabled, assume nominal 2.0 m
+            depth = self._depth_at(self.latest_depth, [x1, y1, x2, y2], (u, v)) if self.use_depth_for_localisation else 2.0
+            if depth is None or not np.isfinite(depth) or depth <= 0.0:
+                continue
+
+            # 3D point in camera frame: P_cam = depth * unit-ray
+            px_cam = ray[0] * depth
+            py_cam = ray[1] * depth
+            pz_cam = ray[2] * depth
+
+            # Transform to map frame
+            p_map = self._transform_cam_point_to_map(px_cam, py_cam, pz_cam, stamp_for_tf, cam_frame)
+            if p_map is None:
+                continue
+
+            # Class name
+            cls_id = det.get("cls", -1)
+            cls_name = (self.class_names[cls_id]
+                        if (isinstance(cls_id, int) and 0 <= cls_id < len(self.class_names))
+                        else f"class_{cls_id}")
+
+            # Upsert artifact (distance-based merge + majority vote)
+            self._upsert_artifact(p_map.x, p_map.y, cls_name)
+            updates += 1
+
+        if updates > 0:
+            self.publish_artifact_markers()
 
     def publish_artifact_markers(self):
-        """ Publish the artifact location markers"""
+        """
+        Publish all saved artifact estimates as:
+        - a SPHERE_LIST in 'map' frame
+        - one TEXT_VIEW_FACING label per artifact showing majority class and count
 
-        # Update the locations
-        self.marker_artifacts_.points = self.artifact_locations_
+        Uses self.marker_artifacts_ (already initialised in __init__) and the existing
+        marker publisher 'marker_array_artifacts'.
+        """
+        from std_msgs.msg import ColorRGBA
 
-        # Create and publish the MarkerArray
-        marker_array = MarkerArray()
-        marker_array.markers = [self.marker_artifacts_]
-        self.marker_pub_.publish(marker_array)
+        points, colors, texts = [], [], []
+
+        for a in self.artifacts:
+            p = Point(x=float(a.x), y=float(a.y), z=1.0)
+            points.append(p)
+            texts.append((p, f"{a.cls}#{a.id} (n={a.n})", a.id))
+
+            # deterministic color per class
+            h = (hash(a.cls) % 255) / 255.0
+            r = 0.1 + 0.2 * h
+            g = 0.7 + 0.2 * (1.0 - h)
+            b = 0.2 + 0.2 * (0.5 - abs(0.5 - h))
+            colors.append(ColorRGBA(r=float(r), g=float(g), b=float(b), a=1.0))
+
+        # MarkerArray with DELETEALL + spheres + text labels
+        marr = MarkerArray()
+
+        delete_all = Marker()
+        delete_all.action = Marker.DELETEALL
+        marr.markers.append(delete_all)
+
+        # Sphere list
+        self.marker_artifacts_.header.stamp = self.get_clock().now().to_msg()
+        self.marker_artifacts_.points = points
+        self.marker_artifacts_.colors = colors if len(colors) == len(points) else []
+        marr.markers.append(self.marker_artifacts_)
+
+        # Text labels (stable per-id)
+        text_id_base = 10000
+        for p, txt, aid in texts:
+            m = Marker()
+            m.header.frame_id = "map"
+            m.header.stamp = self.marker_artifacts_.header.stamp
+            m.ns = "artifact_labels"
+            m.id = text_id_base + int(aid)
+            m.type = Marker.TEXT_VIEW_FACING
+            m.action = Marker.ADD
+            m.pose.position.x = p.x; m.pose.position.y = p.y; m.pose.position.z = p.z + 0.8
+            m.scale.z = 0.8
+            m.color.a = 1.0; m.color.r = 1.0; m.color.g = 1.0; m.color.b = 1.0
+            m.text = txt
+            marr.markers.append(m)
+
+        self.marker_pub_.publish(marr)
 
 ##########################################
 ##### ----- Callback Functions ----- #####
@@ -299,118 +574,176 @@ class CaveExplorer(Node):
         # self.get_logger().warn(f'  xlim = [{self.xlim_[0]:.2f}, {self.xlim_[1]:.2f}]')
         # self.get_logger().warn(f'  ylim = [{self.ylim_[0]:.2f}, {self.ylim_[1]:.2f}]')
 
-    ### Original Computer Vision Model ###
-    def image_callback(self, image_msg):
-        """
-        Recieve an RGB image.
-        Use this method to detect artifacts of interest.
-        
-        A simple method has been provided to begin with for detecting stop signs (which is not what we're actually looking for) 
-        adapted from: https://www.geeksforgeeks.org/detect-an-object-with-opencv-python/
-        """
-    
-        # Copy the image message to a cv image
-        # see http://wiki.ros.org/cv_bridge/Tutorials/ConvertingBetweenROSImagesAndOpenCVImagesPython
-        image = self.cv_bridge_.imgmsg_to_cv2(image_msg, desired_encoding='passthrough')
-
-        # Create a grayscale version (some simple models use this)
-        # image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        # Retrieve the pre-trained model
-        stop_sign_model = self.computer_vision_model_
-
-        # Detect artifacts in the image
-        # The minSize is used to avoid very small detections that are probably noise
-        detections = stop_sign_model.detectMultiScale(image, minSize=(20,20))
-
-        # You can set "artifact_found_" to true to signal to "main_loop" that you have found a artifact
-        # You may want to communicate more information
-        # Since the "image_callback" and "main_loop" methods can run at the same time you should protect any shared variables
-        # with a mutex
-        # "artifact_found_" doesn't need a mutex because it's an atomic
-        num_detections = len(detections)
-
-        if num_detections > 0:
-            self.artifact_found_ = True
-        else:
-            self.artifact_found_ = False
-
-        # Draw a bounding box rectangle on the image for each detection
-        for(x, y, width, height) in detections:
-            cv2.rectangle(image, (x, y), (x + height, y + width), (0, 255, 0), 5)
-
-        # Publish the image with the detection bounding boxes
-        image_detection_message = self.cv_bridge_.cv2_to_imgmsg(image, encoding="rgb8")
-        self.image_detections_pub_.publish(image_detection_message)
-
-        if self.artifact_found_:
-            self.get_logger().info('Artifact found!')
-            self.localise_artifact()
-
-    ### --------------------- ###
-
-    # ### Perception 2 ###
+    # ### Original Computer Vision Model ###
     # def image_callback(self, image_msg):
-    #     if self.yolo_model is None:
-    #         return
+    #     """
+    #     Recieve an RGB image.
+    #     Use this method to detect artifacts of interest.
+        
+    #     A simple method has been provided to begin with for detecting stop signs (which is not what we're actually looking for) 
+    #     adapted from: https://www.geeksforgeeks.org/detect-an-object-with-opencv-python/
+    #     """
+    
+    #     # Copy the image message to a cv image
+    #     # see http://wiki.ros.org/cv_bridge/Tutorials/ConvertingBetweenROSImagesAndOpenCVImagesPython
+    #     image = self.cv_bridge_.imgmsg_to_cv2(image_msg, desired_encoding='passthrough')
 
-    #     # BGR from ROS → RGB for YOLO
-    #     bgr = self.cv_bridge_.imgmsg_to_cv2(image_msg, desired_encoding='bgr8')
-    #     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+    #     # Create a grayscale version (some simple models use this)
+    #     # image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    #     # Inference
-    #     results = self.yolo_model.predict(
-    #         source=rgb,
-    #         conf=self.yolo_conf,
-    #         iou=self.yolo_iou,
-    #         imgsz=self.yolo_imgsz,
-    #         verbose=False,
-    #         device=0 if (cv2.cuda.getCudaEnabledDeviceCount() > 0) else 'cpu'
-    #     )
+    #     # Retrieve the pre-trained model
+    #     stop_sign_model = self.computer_vision_model_
 
-    #     annotated = bgr.copy()
-    #     detections = []
+    #     # Detect artifacts in the image
+    #     # The minSize is used to avoid very small detections that are probably noise
+    #     detections = stop_sign_model.detectMultiScale(image, minSize=(20,20))
 
-    #     if results and len(results) > 0:
-    #         res = results[0]
-    #         if res.boxes is not None and len(res.boxes) > 0:
-    #             for box in res.boxes:
-    #                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int).tolist()
-    #                 cls_id = int(box.cls[0].item())
-    #                 conf = float(box.conf[0].item())
-    #                 name = self.class_names[cls_id] if cls_id < len(self.class_names) else f"class_{cls_id}"
+    #     # You can set "artifact_found_" to true to signal to "main_loop" that you have found a artifact
+    #     # You may want to communicate more information
+    #     # Since the "image_callback" and "main_loop" methods can run at the same time you should protect any shared variables
+    #     # with a mutex
+    #     # "artifact_found_" doesn't need a mutex because it's an atomic
+    #     num_detections = len(detections)
 
-    #                 cv2.rectangle(annotated, (x1,y1), (x2,y2), (0,255,0), 2)
-    #                 cv2.putText(annotated, f"{name} {conf:.2f}", (x1, max(0,y1-7)),
-    #                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1, cv2.LINE_AA)
+    #     if num_detections > 0:
+    #         self.artifact_found_ = True
+    #     else:
+    #         self.artifact_found_ = False
 
-    #                 det = {"xyxy": [x1,y1,x2,y2], "cls": cls_id, "conf": conf, "stamp": image_msg.header.stamp}
+    #     # Draw a bounding box rectangle on the image for each detection
+    #     for(x, y, width, height) in detections:
+    #         cv2.rectangle(image, (x, y), (x + height, y + width), (0, 255, 0), 5)
 
-    #                 ### Perception 3 ###
-    #                 if self.use_depth_for_localisation and self.latest_depth is not None:
-    #                     cx = int((x1+x2)/2); cy = int((y1+y2)/2)
-    #                     if 0 <= cy < self.latest_depth.shape[0] and 0 <= cx < self.latest_depth.shape[1]:
-    #                         z = float(self.latest_depth[cy, cx])
-    #                         if np.isfinite(z) and z > 0:
-    #                             det["depth_m"] = z
-    #                             if self.fx and self.fy and self.cx is not None and self.cy is not None:
-    #                                 bearing_x = math.atan2((cx - self.cx), self.fx)
-    #                                 bearing_y = math.atan2((cy - self.cy), self.fy)
-    #                                 det["bearing_rad"] = (bearing_x, bearing_y)
-    #                 ### --------------------- ###
-    #                 detections.append(det)
+    #     # Publish the image with the detection bounding boxes
+    #     image_detection_message = self.cv_bridge_.cv2_to_imgmsg(image, encoding="rgb8")
+    #     self.image_detections_pub_.publish(image_detection_message)
 
-    #     # Update flags/state
-    #     self.latest_detections = detections
-    #     self.artifact_found_ = len(detections) > 0
     #     if self.artifact_found_:
-    #         self.get_logger().info(f"Detections: {len(detections)}")
+    #         self.get_logger().info('Artifact found!')
+    #         self.localise_artifact()
 
-    #     # Publish annotated image for RViz
-    #     out = self.cv_bridge_.cv2_to_imgmsg(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), encoding="rgb8")
-    #     out.header = image_msg.header
-    #     self.image_detections_pub_.publish(out)
-    #     ### --------------------- ###
+    # ### --------------------- ###
+
+    ### Perception 2 ###
+    def image_callback(self, image_msg):
+        # Count frames
+        self.image_msgs_seen += 1
+        if self.image_msgs_seen % 10 == 0:
+            self.get_logger().info(f"[image] frames seen: {self.image_msgs_seen}")
+
+        # Decode with correct encoding (avoid RGB/BGR mix-ups)
+        enc = (image_msg.encoding or '').lower()
+        try:
+            if enc in ('rgb8', 'rgba8'):
+                rgb = self.cv_bridge_.imgmsg_to_cv2(image_msg, desired_encoding='rgb8')
+                bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+            else:
+                # default to BGR
+                bgr = self.cv_bridge_.imgmsg_to_cv2(image_msg, desired_encoding='bgr8')
+                rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        except Exception as e:
+            self.get_logger().error(f"cv_bridge conversion error: {e}")
+            return
+        
+        # Sanity: depth & color should match resolution when using per-pixel depth
+        if self.use_depth_for_localisation and self.latest_depth is not None:
+            h_rgb, w_rgb = rgb.shape[:2]
+            if (self.depth_h, self.depth_w) != (h_rgb, w_rgb):
+                if self.image_msgs_seen % 15 == 0:
+                    self.get_logger().warn(
+                        f"[Depth] Size mismatch: rgb=({w_rgb}x{h_rgb}) depth=({self.depth_w}x{self.depth_h}); skipping localisation this frame."
+                    )
+                self.artifact_found_ = False
+                return
+
+        # --- Manual intrinsics fallback if no CameraInfo ---
+        if self.camera_info is None and self.use_manual_intrinsics:
+            h, w = rgb.shape[:2]
+            hfov = math.radians(self.camera_hfov_deg)
+            fx = w / (2.0 * math.tan(hfov / 2.0))
+            fy = fx
+            cx = (w - 1) * 0.5
+            cy = (h - 1) * 0.5
+            if not all([self.fx, self.fy, self.cx, self.cy]):
+                self.fx, self.fy, self.cx, self.cy = fx, fy, cx, cy
+                self.camera_frame_id = image_msg.header.frame_id or "camera_link"
+                self.get_logger().warn(
+                    f"[Intrinsics] Using manual intrinsics fx=fy={fx:.1f}, cx={cx:.1f}, cy={cy:.1f} "
+                    f"(w={w}, h={h}, hfov={self.camera_hfov_deg:.1f} deg)"
+                )
+
+        annotated = bgr.copy()
+        detections, num_boxes = [], 0
+
+        # --- YOLO inference on CPU (robust default) ---
+        hud_text = "YOLO: off"
+        try:
+            if self.yolo_model is not None:
+                results = self.yolo_model.predict(
+                    source=rgb,
+                    conf=self.yolo_conf,
+                    iou=self.yolo_iou,
+                    imgsz=self.yolo_imgsz,
+                    verbose=False,
+                    device='cpu'   # switch to 'cuda:0' later once verified
+                )
+                if results and len(results) > 0 and getattr(results[0], 'boxes', None) is not None:
+                    res = results[0]
+                    num_boxes = len(res.boxes)
+                    for box in res.boxes:
+                        x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int).tolist()
+                        cls_id = int(box.cls[0].item()) if box.cls is not None else -1
+                        conf = float(box.conf[0].item()) if box.conf is not None else 0.0
+                        name = (self.class_names[cls_id] if 0 <= cls_id < len(self.class_names)
+                                else (self.yolo_model.names.get(cls_id, f"class_{cls_id}")
+                                    if hasattr(self.yolo_model, 'names') else f"class_{cls_id}"))
+                        cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        cv2.putText(annotated, f"{name} {conf:.2f}", (x1, max(0, y1 - 7)),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
+                        detections.append({"xyxy":[x1,y1,x2,y2], "cls":cls_id, "conf":conf,
+                                        "stamp": image_msg.header.stamp})
+                    hud_text = f"YOLO: {num_boxes} boxes"
+                else:
+                    hud_text = "YOLO: 0 boxes"
+            else:
+                hud_text = "YOLO: not loaded"
+        except Exception as e:
+            self.get_logger().error(f"YOLO predict error: {e}")
+            hud_text = "YOLO: error"
+
+        # Planner flags
+        self.latest_detections = detections
+
+        # HUD so you can see status in RViz
+        cv2.putText(annotated, hud_text, (8, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2, cv2.LINE_AA)
+        cv2.putText(annotated, f"conf={self.yolo_conf:.2f}, img={self.yolo_imgsz}", (8, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1, cv2.LINE_AA)
+
+        # Publish overlay (always publish so RViz never shows "No image")
+        out_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+        msg_out = self.cv_bridge_.cv2_to_imgmsg(out_rgb, encoding="rgb8")
+        msg_out.header = image_msg.header
+        self.image_detections_pub_.publish(msg_out)
+
+        self.last_image_header = image_msg.header
+        # Kick off localisation & fusion
+        ready_to_localise = (self.fx is not None and self.fy is not None and self.cx is not None and self.cy is not None) and \
+                    (self.latest_depth is not None or not self.use_depth_for_localisation)
+
+        self.artifact_found_ = (len(detections) > 0) and ready_to_localise
+
+        # if ready_to_localise:
+        #     # Minimal Perception 3 pipeline:
+        #     # YOLO boxes -> pixel(center) -> depth median -> 3D cam -> TF to map -> merge -> RViz
+        #     self.localise_artifact()
+        # else:
+        #     # Throttle this warning
+        #     if self.image_msgs_seen % 15 == 0:
+        #         if self.fx is None:
+        #             self.get_logger().warn("Waiting for intrinsics (CameraInfo or manual).")
+        #         if self.use_depth_for_localisation and self.latest_depth is None:
+        #             self.get_logger().warn("Waiting for depth frames…")
+        ### --------------------- ###
 
     def goal_response_callback(self, future):
         """The requested goal pose has been sent to the action server"""
@@ -564,7 +897,8 @@ class CaveExplorer(Node):
         
         #Set planner type to frontier
         if self.artifact_found_:
-            self.planner_type_ = PlannerType.ARTIFACT_EXPLORATION
+            self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
+            #self.planner_type_ = PlannerType.ARTIFACT_EXPLORATION
         else:
             self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
 
@@ -578,8 +912,10 @@ class CaveExplorer(Node):
             else:
                 self.get_logger().warn('No map received yet. Cannot perform frontier exploration.')
 
-        elif self.planner_type_ == PlannerType.ARTIFACT_EXPLORATION:
-            self.path_planner.artifact_exploration_step()
+        # elif self.planner_type_ == PlannerType.ARTIFACT_EXPLORATION:
+        #     done = self.path_planner.artifact_exploration_step()
+        #     if done:
+        #         self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
         else:
             self.get_logger().error('No valid planner selected')
 
