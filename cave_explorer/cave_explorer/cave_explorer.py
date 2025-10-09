@@ -568,7 +568,7 @@ class CaveExplorer(Node):
         self.ylim_ = [map_origin[1], map_origin[1]+map_height*map_resolution]
 
         self.latest_map_ = map_msg
-        self.path_planner.latest_map_ = map_msg  # forward map to PathPlanner
+        self.path_planner.latest_map_ = map_msg  #forward map to PathPlanner
 
         # self.get_logger().warn('Map received:')
         # self.get_logger().warn(f'  xlim = [{self.xlim_[0]:.2f}, {self.xlim_[1]:.2f}]')

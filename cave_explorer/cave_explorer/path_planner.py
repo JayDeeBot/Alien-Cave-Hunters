@@ -14,6 +14,13 @@ class PathPlanner():
         self.latest_map_ = None
         self.marker_pub_ = node.marker_pub_
 
+        self.current_goal = None
+        #Artifact handling
+        self.visited_artifacts = []      #list of (x, y) in map frame
+        self.active_artifact_goal = None #current artifact standoff goal
+        self.standoff_distance = 0.3     #m, safe viewing distance
+        self.artifact_timeout = 10
+
 ########################################
 ##### ----- Helper Functions ----- #####
 ########################################
@@ -60,10 +67,11 @@ class PathPlanner():
         #return array will points of fronties(unkown cells)
         return frontiers
     
-    def cluster_frontiers(self, frontiers, threshold=0.5):
+    def cluster_frontiers(self, frontiers, threshold=0.5, min_size=6):
         """
         Cluster frontier points based on proximity using BFS.
         Returns a list of clusters, each cluster is a list of (x, y) points.
+        Ignores clusters with fewer than `min_size` points.
         """
         clusters = []
         visited = set()
@@ -85,32 +93,71 @@ class PathPlanner():
                         queue.append(other)
                         cluster.append(other)
                         visited.add(j)
-            clusters.append(cluster)
+
+            # Only add clusters with enough points
+            if len(cluster) >= min_size:
+                clusters.append(cluster)
 
         return clusters
 
+
     
     #Function to pick which frontier to go to
-    def choose_frontier(self, frontiers, robot_pose):
+    def choose_frontier(self, frontiers, robot_pose,w_cluster=0.2, w_cost=0.7, diff_goal_pen=0.5):
         """
-        Choose the frontier cluster with the largest number of points.
-        Returns the centroid of that cluster as a Pose2D.
+        Choose the best frontier cluster based on weighted score:
+        score = w_cluster * cluster_size
+            - w_cost * travel_cost
+            + w_stick * w_cost
+
+        w_stick encourages staying near the current goal.
         """
+
         if not frontiers:
             return None
 
-        # Cluster the frontiers
         clusters = self.cluster_frontiers(frontiers)
 
-        # Pick the largest cluster
-        largest_cluster = max(clusters, key=len)
+        best_score = float("-inf")
+        best_centroid = None
 
-        # Return the centroid of the cluster
-        x_mean = sum(p[0] for p in largest_cluster) / len(largest_cluster)
-        y_mean = sum(p[1] for p in largest_cluster) / len(largest_cluster)
+        for cluster in clusters:
+            # Compute centroid
+            cx = sum(p[0] for p in cluster) / len(cluster)
+            cy = sum(p[1] for p in cluster) / len(cluster)
+            centroid = (cx, cy)
 
-        return Pose2D(x=x_mean, y=y_mean, theta=0.0)
-    
+            # Frontier properties
+            cluster_size = len(cluster)
+
+            # Distance from robot to centroid
+            dx = centroid[0] - robot_pose.x
+            dy = centroid[1] - robot_pose.y
+            path_cost = math.hypot(dx, dy)
+
+            # Goal persistence bonus
+            diff_goal_multiplier = 1
+            if isinstance(self.current_goal, (tuple, list)):
+                if not math.isclose(centroid[0], self.current_goal[0], abs_tol=0.1) or \
+                not math.isclose(centroid[1], self.current_goal[1], abs_tol=0.1):
+                    diff_goal_multiplier = diff_goal_pen
+
+            # Compute total score
+            score = (w_cluster * cluster_size - w_cost * path_cost) * diff_goal_multiplier
+
+            if score > best_score:
+                best_score = score
+                best_centroid = centroid
+
+        # Update and return
+        if best_centroid is None:
+            return None
+
+        # Store for next iteration
+        self.current_goal = best_centroid
+
+        return Pose2D(x=best_centroid[0], y=best_centroid[1], theta=0.0)
+        
     #Function called every frame/step to coninitusly update the robot with the most recent data
     def frontier_exploration_step(self):
         """Perform one iteration of frontier-based exploration with dynamic replanning."""
@@ -176,15 +223,93 @@ class PathPlanner():
 ##### ----- Artifact Path Planner ----- #####
 #############################################
 
-    def check_artifact_register(self):
-        ''' Checks to see if artifact has already been visted and if so how much time has been spent visiting it'''
-        pass
+    def check_artifact_register(self, ax, ay, tol=0.5):
+        """
+        Return True if an artifact close to (ax, ay) has been visited before
+        """
+        for (vx, vy) in self.visited_artifacts:
+            if math.hypot(vx - ax, vy - ay) < tol:
+                return True
+        return False
+
+
+
+    def register_artifact(self, ax, ay):
+        """
+        Add artifact to visited list and publish a marker in RViz
+        """
+        self.visited_artifacts.append((ax, ay))
+
+        marker = Marker()
+        marker.header.frame_id = 'map'
+        marker.type = Marker.SPHERE
+        marker.action = Marker.ADD
+        marker.pose.position.x = ax
+        marker.pose.position.y = ay
+        marker.pose.position.z = 0.0
+        marker.scale.x = marker.scale.y = marker.scale.z = 0.3
+        marker.color.r = 1.0
+        marker.color.a = 1.0
+        marker.id = len(self.visited_artifacts)
+
+        self.marker_pub_.publish(marker)
 
     
-    def artifact_exploration_step(self):
-        pass
+    def artifact_exploration_step(self, ax, ay,):
+        """
+        Drive to the standoff point near the detected artifact
+        returns true when done
+        """
+        print("MOVEING TO ARTFIACTS")
+        #Check if artfect is visited
+        if self.check_artifact_register(ax, ay):
+            self.get_logger().info("Artifact already inspected — ignoring.")
+            return True
 
-    def register_artifact():
-        '''After artifact inspection add it to register and plot it on rviz'''
-        pass
+
+        # --- if we haven’t yet computed a goal, do it ---
+        if self.active_artifact_goal is None:
+            if self.node.artifact_pose_map is None:
+                self.get_logger().warn("Artifact flag set but no pose available.")
+                return True
+
+            # Compute standoff pose
+            robot_pose = self.get_pose_2d()
+            ax = self.node.artifact_pose_map.position.x
+            ay = self.node.artifact_pose_map.position.y
+
+            dx = ax - robot_pose.x
+            dy = ay - robot_pose.y
+            dist = math.hypot(dx, dy)
+
+            if dist < 1e-3:
+                self.get_logger().warn("Artifact and robot pose are the same!")
+                return True
+
+            # Standoff distance and orientation
+            standoff = 1.0   # metre
+            sx = ax - (dx/dist) * standoff
+            sy = ay - (dy/dist) * standoff
+            theta = math.atan2(dy, dx)
+
+            self.active_artifact_goal = Pose2D(x=sx, y=sy, theta=theta)
+            self.get_logger().info(
+                f"Artifact goal set at [{sx:.2f}, {sy:.2f}] facing [{theta:.2f}]"
+            )
+
+        # --- move to goal ---
+        self.planner_go_to_pose2d(self.active_artifact_goal)
+
+        # --- check arrival ---
+        robot_pose = self.get_pose_2d()
+        d = math.hypot(robot_pose.x - self.active_artifact_goal.x,
+                       robot_pose.y - self.active_artifact_goal.y)
+
+        if d < 0.3:
+            self.get_logger().info("Reached artifact — registering it.")
+            self.register_artifact(self.node.artifact_pose_map.position.x,self.node.artifact_pose_map.position.y)
+
+        return False
+
+
         
