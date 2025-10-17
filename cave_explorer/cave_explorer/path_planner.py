@@ -225,44 +225,6 @@ class PathPlanner():
 #############################################
 ##### ----- Artifact Path Planner ----- #####
 #############################################
-
-    def get_artifact(self):
-        """
-        Navigate to the nearest unvisited artifact.
-        If all artifacts are visited, fallback to frontier exploration.
-        """
-        if not self.artifacts:
-            self.node.get_logger().info("No artifects")
-            return None
-
-        # Current robot position
-        pose = self.node.get_pose_2d()
-
-        # Sort artifacts by distance to robot
-        sorted_artifacts = sorted(self.artifacts,key=lambda a: math.hypot(a.x - pose.x, a.y - pose.y))
-
-        registered_artfiacts = self.path_planner.get_artifact_register()
-        registered_ids = [r[2] for r in registered_artfiacts]  # all registered artifact IDs
-
-        for a in sorted_artifacts:
-            # Check if artifact is in the register
-            for reg in registered_artfiacts:
-                reg_x, reg_y, reg_id, timer = reg
-                
-                if a.id == reg_id:
-                    # Found a match — check the timer
-                    if timer <= self.artifact_timeout:
-                        self.node.get_logger().info(f"Artifact {a.id} timer expired ({timer:.2f}s >= {self.artifact_timeout}s)")
-                        return a.id
-                    break  # no need to keep checking other registers
-            
-            # If artifact not registered at all — prioritise it
-            if a.id not in registered_ids:
-                self.node.get_logger().info(f"New artifact found (ID: {a.id}) — prioritising visit")
-                return a.id
-
-        # If none found
-        return None
     
     def artifact_exploration_step(self, artifact):
         """
