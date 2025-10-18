@@ -23,7 +23,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/launch', glob('launch/*launch.[pxy][yma]*')),
+        ('share/' + package_name + '/launch', glob('launch/*.launch.py')),
         ('share/' + package_name + '/config', glob('config/*')),
     ] + generate_data_files('share/' + package_name + '/', 'urdf') + generate_data_files('share/' + package_name + '/', 'worlds'),
     install_requires=['setuptools'],
@@ -35,7 +35,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'cave_explorer = cave_explorer.cave_explorer:main'
+            'cave_explorer = cave_explorer.cave_explorer:main',
+            'roadmap_builder = cave_explorer.roadmap_builder:main',
+
         ],
     },
 )
