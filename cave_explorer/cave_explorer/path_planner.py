@@ -249,17 +249,10 @@ class PathPlanner():
             theta = math.atan2(dy, dx)
 
             self.active_artifact_goal = Pose2D(x=sx, y=sy, theta=theta)
-            self.node.get_logger().info(f"Artifact goal set at [{sx:.2f}, {sy:.2f}] facing [{theta:.2f}]!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-
         
-        # --- move to goal ---
         self.node.get_logger().info(f"artact goal, it has pose x: {self.active_artifact_goal.x}, y: {self.active_artifact_goal.y}") 
         self.node.planner_go_to_pose2d(self.active_artifact_goal)
 
-        # --- check arrival ---
-        robot_pose = self.node.get_pose_2d()
-        d = math.hypot(robot_pose.x - self.active_artifact_goal.x,
-                       robot_pose.y - self.active_artifact_goal.y)
         
         artifact.time_examined = artifact.time_examined + 0.5
         self.node.get_logger().info(f" artifact timer: {artifact.time_examined}")
