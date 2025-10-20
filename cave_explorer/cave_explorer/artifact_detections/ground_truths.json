@@ -1,0 +1,122 @@
+[
+  {
+    "artifact": "artifact_0",
+    "class": "alien",
+    "coordinates": {
+      "x": -5.4,
+      "y": -0.3
+    }
+  },
+  {
+    "artifact": "artifact_1",
+    "class": "green_crystal",
+    "coordinates": {
+      "x": 8.2,
+      "y": 5.2
+    }
+  },
+  {
+    "artifact": "artifact_2",
+    "class": "white_sphere",
+    "coordinates": {
+      "x": 52.0,
+      "y": 5.4
+    }
+  },
+  {
+    "artifact": "artifact_3",
+    "class": "ice_castle",
+    "coordinates": {
+      "x": 33.7,
+      "y": 10.6
+    }
+  },
+  {
+    "artifact": "artifact_4",
+    "class": "mushroom",
+    "coordinates": {
+      "x": 20.0,
+      "y": 10.2
+    }
+  },
+  {
+    "artifact": "artifact_5",
+    "class": "alien",
+    "coordinates": {
+      "x": 19.1,
+      "y": 20.8
+    }
+  },
+  {
+    "artifact": "artifact_6",
+    "class": "green_crystal",
+    "coordinates": {
+      "x": -3.3,
+      "y": 21.4
+    }
+  },
+  {
+    "artifact": "artifact_7",
+    "class": "white_sphere",
+    "coordinates": {
+      "x": 2.9,
+      "y": 23.3
+    }
+  },
+  {
+    "artifact": "artifact_8",
+    "class": "ice_castle",
+    "coordinates": {
+      "x": 18.0,
+      "y": 30.2
+    }
+  },
+  {
+    "artifact": "artifact_9",
+    "class": "mushroom",
+    "coordinates": {
+      "x": -4.7,
+      "y": 30.2
+    }
+  },
+  {
+    "artifact": "artifact_10",
+    "class": "alien",
+    "coordinates": {
+      "x": 54.4,
+      "y": 32.7
+    }
+  },
+  {
+    "artifact": "artifact_11",
+    "class": "green_crystal",
+    "coordinates": {
+      "x": 19.8,
+      "y": 35.8
+    }
+  },
+  {
+    "artifact": "artifact_12",
+    "class": "white_sphere",
+    "coordinates": {
+      "x": 46.7,
+      "y": 35.9
+    }
+  },
+  {
+    "artifact": "artifact_13",
+    "class": "ice_castle",
+    "coordinates": {
+      "x": -4.0,
+      "y": 39.0
+    }
+  },
+  {
+    "artifact": "artifact_14",
+    "class": "mushroom",
+    "coordinates": {
+      "x": 33.5,
+      "y": 45.9
+    }
+  }
+]

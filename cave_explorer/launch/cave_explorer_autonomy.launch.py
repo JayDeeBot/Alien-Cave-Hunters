@@ -40,10 +40,11 @@ def generate_launch_description():
                     ### Perception 2 ###
                     # --- YOLO params ---
                     'yolo_model_path': PathJoinSubstitution(config_path + ['best.pt']),
-                    'yolo_conf': 0.35,
+                    'yolo_conf': 0.05,
                     'yolo_iou': 0.50,
                     'yolo_imgsz': 640,
                     'yolo_classes': ['mushroom','green_crystal','alien','white_sphere','ice_castle','stop_sign'],
+                    'yolo_allowed_class_names': ['mushroom','green_crystal'],
 
                     ### Perception 3 ###
                     # Enable depth-based localisation

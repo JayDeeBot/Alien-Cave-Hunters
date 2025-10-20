@@ -31,8 +31,3 @@ ros2 launch cave_explorer cave_explorer_navigation.launch.py
 #Launch Main Code
 ros2 launch cave_explorer cave_explorer_autonomy.launch.py
 ```
-
-## Teleop Around
-```bash
-
-```
