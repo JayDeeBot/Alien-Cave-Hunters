@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # ### Perception 2 Imports ###
 import numpy as np
 
@@ -7,14 +6,11 @@ try:
     _HAS_YOLO = True
 except Exception as e:
     _HAS_YOLO = False
+
+import cv2
 ### --------------------- ###
 
 ### Perception 3 Imports ###
-=======
-#!/usr/bin/env python3
-
-import cv2
->>>>>>> 452e584f1328191642f6486d741510e869f0fcdf
 import json
 import math
 import time
@@ -317,7 +313,6 @@ class CaveExplorer(Node):
         self.last_image_header = None
         self.camera_frame_id = None  # Set from image header
 
-<<<<<<< HEAD
         # Subscribe to depth image
         self.depth_sub_ = self.create_subscription(
             Image, 'camera/depth/image', self.depth_callback, sensor_qos
@@ -328,8 +323,6 @@ class CaveExplorer(Node):
         self.next_artifact_id = 1
         self.merge_dist_m = 15.0  # meters; detections within this distance are merged
 
-=======
->>>>>>> 452e584f1328191642f6486d741510e869f0fcdf
         # Portable path: <this_file_dir>/artifact_detections/detections.json
         self.artifact_json_path = (Path(__file__).resolve().parent
                                 / "artifact_detections" / "detections.json")
@@ -444,13 +437,6 @@ class CaveExplorer(Node):
             self.get_logger().warn(f"[Artifacts] Failed to persist JSON: {e}")
 
 
-<<<<<<< HEAD
-=======
-##########################################
-##### ----- Artifact Functions ----- #####
-##########################################  
-
->>>>>>> 452e584f1328191642f6486d741510e869f0fcdf
     def estimate_artifact_direction(self, u: float, v: float, cam_frame: str):
         """
         From a pixel (u,v), compute:
@@ -561,11 +547,7 @@ class CaveExplorer(Node):
         self.get_logger().warn(f'Pose: {pose}')
 
         return pose
-<<<<<<< HEAD
-
-=======
     
->>>>>>> 452e584f1328191642f6486d741510e869f0fcdf
     def localise_artifact(self):
         """
         New localisation pipeline:
