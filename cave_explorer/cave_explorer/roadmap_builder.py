@@ -77,22 +77,38 @@ class RoadmapBuilder(Node):
     # -------------------------
     # Collision checking helper
     # -------------------------
-    def edge_valid(self, x1, y1, x2, y2, step=0.05):
+    def edge_valid(self, x1, y1, x2, y2, step=0.05, clearance=None):
         """Return True if straight line from (x1,y1) to (x2,y2) does not cross occupied map cells."""
         if self.map_data is None:
             return True
 
+        clearance = clearance or self.min_node_spacing # minimum clearance from obstacles
+
         dist = math.hypot(x2 - x1, y2 - y1)
         steps = max(1, int(dist / step))
+
         for i in range(steps + 1):
             t = i / steps
             x = x1 + t * (x2 - x1)
             y = y1 + t * (y2 - y1)
+            
+            #convert to map coords
             mx, my = self.world_to_map(x, y)
-            if not (0 <= mx < self.map_data.shape[1] and 0 <= my < self.map_data.shape[0]):
+
+            buffer_cells = max(1, int((clearance * 0.7) / self.map_resolution))
+
+            x0 = max(0, mx - buffer_cells)
+            x1 = min(self.map_data.shape[1], mx + buffer_cells + 1)
+            y0 = max(0, my - buffer_cells)
+            y1 = min(self.map_data.shape[0], my + buffer_cells + 1)
+
+            local = self.map_data[y0:y1, x0:x1]
+            if np.any(local > 50):  # occupied threshold
                 return False
-            if self.map_data[my, mx] > 50:  # occupied threshold
-                return False
+            # if not (0 <= mx < self.map_data.shape[1] and 0 <= my < self.map_data.shape[0]):
+            #     return False
+            # if self.map_data[my, mx] > 50:  # occupied threshold
+            #     return False
         return True
     
     # -------------------------
