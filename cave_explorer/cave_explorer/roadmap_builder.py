@@ -388,16 +388,6 @@ class RoadmapBuilder(Node):
 
                 if already_connected or not self.edge_valid(node.x, node.y, other.x, other.y):
                     continue
-                
-                #ignore nodes behind
-                rx, ry = self.current_pose_2d.x, self.current_pose_2d.y
-                v1x, v1y = other.x - rx, other.y - ry   # vector from robot to other
-                angle_to_other = math.atan2(v1y, v1x)
-                angle_diff = abs((angle_to_other - self.current_pose_2d.theta + math.pi) % (2*math.pi) - math.pi)
-                
-                min_forward_angle = math.pi / 2  # 90 degrees
-                if angle_diff > min_forward_angle:   # more than 90 degrees off
-                    continue
 
                 node.neighbours.append(other)
                 other.neighbours.append(node)
