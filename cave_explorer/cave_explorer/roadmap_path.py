@@ -87,20 +87,40 @@ class RoadmapPath:
     def find_frontiers(self):
         if self.latest_map_ is None:
             return []
+        
 
         width = self.latest_map_.info.width
         height = self.latest_map_.info.height
         data = np.array(self.latest_map_.data).reshape((height, width))
+        resolution = self.latest_map_.info.resolution
+        origin = self.latest_map_.info.origin.position
 
         frontiers = []
+        OCC_THRESHOLD = 50  # occupied cell threshold
+
         for y in range(1, height-1):
             for x in range(1, width-1):
-                if data[y,x] == -1 and 0 in [data[y+1,x], data[y-1,x], data[y,x+1], data[y,x-1]]:
-                    map_x = self.latest_map_.info.origin.position.x + x*self.latest_map_.info.resolution
-                    map_y = self.latest_map_.info.origin.position.y + y*self.latest_map_.info.resolution
-                    frontiers.append((map_x, map_y))
-        return frontiers
+                val = data[y, x]
+                if val != 0:
+                    # only consider explicitly free cells as boundary candidates
+                    continue
 
+                # neighborhood
+                nb = data[y-1:y+2, x-1:x+2]
+
+                # must have at least one unknown neighbour
+                if not np.any(nb == -1):
+                    continue
+
+                # **avoid cells that are adjacent to occupied pixels** (these often are walls)
+                if np.any(nb >= OCC_THRESHOLD):
+                    continue
+
+                wx = origin.x + x * resolution
+                wy = origin.y + y * resolution
+                frontiers.append((wx, wy))
+        return frontiers
+    
     @staticmethod
     def choose_frontier(frontiers, robot_pose: Pose2D):
         if not frontiers or robot_pose is None:
@@ -113,6 +133,43 @@ class RoadmapPath:
     ### -----------------------------
     # PRM Path Planning
     # -----------------------------
+    def dijkstra_path(self, start_node, goal_node):
+        """Return a list of nodes representing a shortest path from start to goal."""
+        if start_node is None or goal_node is None:
+            return []
+
+        dist = {n.idx: float('inf') for n in self.roadmap.nodes_}
+        prev = {n.idx: None for n in self.roadmap.nodes_}
+        dist[start_node.idx] = 0
+
+        # Priority queue: (distance, node)
+        queue = [(0, start_node)]
+
+        while queue:
+            queue.sort(key=lambda x: x[0])  # simple min-heap replacement
+            current_dist, current = queue.pop(0)
+
+            if current.idx == goal_node.idx:
+                break
+
+            for neighbor in getattr(current, 'neighbours', []):
+                # compute edge distance
+                edge_dist = math.hypot(neighbor.x - current.x, neighbor.y - current.y)
+                new_dist = current_dist + edge_dist
+                if new_dist < dist[neighbor.idx]:
+                    dist[neighbor.idx] = new_dist
+                    prev[neighbor.idx] = current
+                    queue.append((new_dist, neighbor))
+
+        # Reconstruct path
+        path = []
+        node = goal_node
+        while node is not None:
+            path.append(node)
+            node = prev[node.idx]
+        path.reverse()
+        return path
+
 
     def get_nearest_node(self, x, y):
         if self.roadmap is None or not self.roadmap.nodes_:
@@ -130,12 +187,23 @@ class RoadmapPath:
         if self.roadmap is None or not self.roadmap.nodes_:
             return False
         
-        # Simple: sort all nodes by distance to goal, follow nearest first
-        nodes_sorted = sorted(self.roadmap.nodes_, key=lambda n: math.hypot(n.x - goal_x, n.y - goal_y))
+        start_node = self.get_nearest_node(self.current_pose.x, self.current_pose.y)
+        goal_node = self.get_nearest_node(goal_x, goal_y)
+        
+        if start_node is None or goal_node is None:
+            return False
+        
+        path_nodes = self.dijkstra_path(start_node, goal_node)
+        if not path_nodes:
+            return False
+        
+        # # Simple: sort all nodes by distance to goal, follow nearest first
+        # nodes_sorted = sorted(self.roadmap.nodes_, key=lambda n: math.hypot(n.x - goal_x, n.y - goal_y))
         
         # Build path as sequence of nodes toward goal
-        self.current_path_nodes = nodes_sorted[:min(10, len(nodes_sorted))]  # pick first 10 nodes toward goal
+        self.current_path_nodes = path_nodes
         self.current_path_index = 0
+        
         return True
 
     
@@ -196,11 +264,11 @@ class RoadmapPathNode(Node):
         pose2d.y = msg.pose.pose.position.y
         pose2d.theta = RoadmapPath.get_yaw_from_quaternion(msg.pose.pose.orientation)
         self.planner.update_pose(pose2d)
-        self.get_logger().info(f"[DEBUG] Got odometry: x={pose2d.x}, y={pose2d.y}, theta={pose2d.theta}")
+        # self.get_logger().info(f"[DEBUG] Got odometry: x={pose2d.x}, y={pose2d.y}, theta={pose2d.theta}")
 
     def map_callback(self, msg: OccupancyGrid):
         self.planner.update_map(msg)
-        self.get_logger().info(f"[DEBUG] Got map: width={msg.info.width}, height={msg.info.height}")
+        # self.get_logger().info(f"[DEBUG] Got map: width={msg.info.width}, height={msg.info.height}")
 
     def roadmap_callback(self, msg: MarkerArray):
         nodes = []
@@ -215,13 +283,24 @@ class RoadmapPathNode(Node):
                 node.neighbours = []  # optional, can be filled later
                 nodes.append(node)
 
-        if nodes:
-            roadmap = type('Roadmap', (), {})()  # dummy object to hold nodes_
-            roadmap.nodes_ = nodes
-            roadmap.edges_ = []  # optional: can parse LINE_LIST markers if needed
-            self.planner.roadmap = roadmap
-            self.get_logger().info(f"[DEBUG] Updated roadmap with {len(nodes)} nodes")
+        for m in msg.markers:
+            if m.type == Marker.LINE_LIST:
+                # Each LINE_LIST marker has points in pairs
+                for i in range(0, len(m.points), 2):
+                    p1, p2 = m.points[i], m.points[i+1]
+                    n1 = next((n for n in nodes if abs(n.x - p1.x) < 1e-3 and abs(n.y - p1.y) < 1e-3), None)
+                    n2 = next((n for n in nodes if abs(n.x - p2.x) < 1e-3 and abs(n.y - p2.y) < 1e-3), None)
+                    if n1 and n2:
+                        if n2 not in n1.neighbours:
+                            n1.neighbours.append(n2)
+                        if n1 not in n2.neighbours:
+                            n2.neighbours.append(n1)
 
+        if nodes:
+            roadmap = type('Roadmap', (), {})()  # lightweight container
+            roadmap.nodes_ = nodes
+            roadmap.edges_ = []  # optional
+            self.planner.roadmap = roadmap 
     # -----------------------------
     # Timer / Control
     # -----------------------------
@@ -251,7 +330,7 @@ class RoadmapPathNode(Node):
         if not self.planner.current_path_nodes or self.planner.current_path_index >= len(self.planner.current_path_nodes):
             # 1. Find frontiers
             frontiers = self.planner.find_frontiers()
-            self.get_logger().info(f"[DEBUG] Found {len(frontiers)} frontiers")
+            # self.get_logger().info(f"[DEBUG] Found {len(frontiers)} frontiers")
 
             # 2. Choose closest frontier
             goal = self.planner.choose_frontier(frontiers, self.planner.current_pose)

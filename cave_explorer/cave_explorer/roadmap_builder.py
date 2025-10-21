@@ -43,28 +43,35 @@ class RoadmapBuilder(Node):
     # -------------------------
     #  PRM Node Management
     # -------------------------
-    def add_node_at_robot_position(self):
+    def node_at_robot_pos(self):
         """Add a node at the robot's current position if not already present."""
-
+        if self.map_data is None:
+            return None
+        
         rx = float(self.current_pose_2d.x)
         ry = float(self.current_pose_2d.y)
         
         # Check if a node is already close to robot
         if self.is_too_close(rx, ry):
             return None
-        node = GraphNode(rx, ry, len(self.nodes_))
-        self.nodes_.append(node)
+        
 
         # Mark map cell as known, only if map_data is available
-        if self.map_data is not None:
-            mx, my = self.world_to_map(rx, ry)
-        
-            if 0 <= mx < self.map_data.shape[1] and 0 <= my < self.map_data.shape[0]:
-                self.known_map[my, mx] = True
+        mx, my = self.world_to_map(rx, ry)
 
-        # before adding node
-        if not self.node_valid(rx, ry):
+        if not (0 <= mx < self.map_data.shape[1] and 0 <= my < self.map_data.shape[0]):
             return None
+
+        cell_value = self.map_data[my, mx]
+        if cell_value != 0:  # only mark free cells
+            return None
+
+        # if not self.is_free_space(rx, ry, self.latest_map_msg, clearance=0.2):
+        #     return None
+       
+        node = GraphNode(rx, ry, len(self.nodes_))
+        self.nodes_.append(node)
+        self.known_map[my, mx] = True
 
         return node
     # -------------------------
@@ -140,9 +147,9 @@ class RoadmapBuilder(Node):
             node.neighbours = [n for n in node.neighbours if n in self.nodes_]
         self.get_logger().info(f"Pruned clumped nodes, total nodes: {len(self.nodes_)}")
     
-        # If robot hasn't moved much, prune nodes within a tighter radius
-        if not add_nodes:
-            self.prune_clumped_nodes(min_spacing=self.min_node_spacing*2.0)
+        # # If robot hasn't moved much, prune nodes within a tighter radius
+        # if not add_nodes:
+        #     self.prune_clumped_nodes(min_spacing=self.min_node_spacing*2.0)
 
     def __init__(self):
         super().__init__('roadmap_builder')
@@ -381,6 +388,16 @@ class RoadmapBuilder(Node):
 
                 if already_connected or not self.edge_valid(node.x, node.y, other.x, other.y):
                     continue
+                
+                #ignore nodes behind
+                rx, ry = self.current_pose_2d.x, self.current_pose_2d.y
+                v1x, v1y = other.x - rx, other.y - ry   # vector from robot to other
+                angle_to_other = math.atan2(v1y, v1x)
+                angle_diff = abs((angle_to_other - self.current_pose_2d.theta + math.pi) % (2*math.pi) - math.pi)
+                
+                min_forward_angle = math.pi / 2  # 90 degrees
+                if angle_diff > min_forward_angle:   # more than 90 degrees off
+                    continue
 
                 node.neighbours.append(other)
                 other.neighbours.append(node)
@@ -508,10 +525,10 @@ class RoadmapBuilder(Node):
                         add_nodes = False  # skip adding nodes
 
         if add_nodes:
-            self.add_node_at_robot_pos = (rx, ry)
+            self.last_prm_robot_pos = (rx, ry)
             self.time_at_last_pos = now_s
 
-            robot_node = self.add_node_at_robot_position()
+            robot_node = self.node_at_robot_pos()
             if robot_node:
                 new_nodes.append(robot_node)
 
