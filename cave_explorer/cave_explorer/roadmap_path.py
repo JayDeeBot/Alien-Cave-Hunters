@@ -401,6 +401,16 @@ class RoadmapPathNode(Node):
         cmd, completed = self.planner.follow_prm_path()
         if cmd:
         # re-project robot onto PRM every few cycles
+            if self.planner.current_path_nodes:
+                i = self.planner.current_path_index
+                if i < len(self.planner.current_path_nodes):
+                    node_a = self.planner.current_path_nodes[max(0, i - 1)]
+                    node_b = self.planner.current_path_nodes[i]
+                    projected = self.planner.project_onto_edge(node_a, node_b)
+
+                    # Snap robot path target to projected position
+                    cmd = self.planner.move_toward(projected)
+                    
             self.cmd_pub.publish(cmd)
         else:
             self.cmd_pub.publish(Twist())  # stop if path exhausted
