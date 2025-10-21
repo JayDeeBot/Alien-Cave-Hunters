@@ -95,7 +95,7 @@ class RoadmapBuilder(Node):
             #convert to map coords
             mx, my = self.world_to_map(x, y)
 
-            buffer_cells = max(1, int((clearance * 0.7) / self.map_resolution))
+            buffer_cells = max(1, int((clearance * 1.0) / self.map_resolution)) # buffer around edge
 
             x0 = max(0, mx - buffer_cells)
             x1 = min(self.map_data.shape[1], mx + buffer_cells + 1)
@@ -109,6 +109,7 @@ class RoadmapBuilder(Node):
             #     return False
             # if self.map_data[my, mx] > 50:  # occupied threshold
             #     return False
+
         return True
     
     # -------------------------
@@ -125,47 +126,69 @@ class RoadmapBuilder(Node):
             return False
         return True
 
+    def local_node_density(self, x, y, radius=None):
+        radius = radius or self.min_node_spacing * 2
+        count = 0
+        for node in self.nodes_:
+            if math.hypot(node.x - x, node.y - y) < radius:
+                count += 1
+        return count
+    
+    def prune_clumped_nodes(self, radius=4.0, max_density=10, min_spacing=None):
+        """
+        Remove nodes that are excessively clumped together to reduce computational load.
 
-    def prune_clumped_nodes(self, min_spacing=None):
-        """Remove nodes that are excessively clumped together to reduce computational weight."""
-
+        Parameters:
+        radius (float)      : used for optional spatial checks (kept for backwards compat)
+        max_density (int)   : maximum allowed number of nodes inside min_spacing radius (inclusive)
+        min_spacing (float) : radius (m) used to compute local density; if None, uses
+                                a multiple of self.min_node_spacing.
+        """
         if min_spacing is None:
-            min_spacing = self.min_node_spacing * 3  # Use a slightly larger threshold for pruning
+            # Use a slightly larger radius for pruning than regular min spacing
+            min_spacing = max(self.min_node_spacing * 2.0, 0.5) # at least 0.5 m
 
-        keep_nodes = []
+        if not self.nodes_:
+            return
+
         removed_indices = set()
 
+        # First pass: mark nodes outside the valid map or with too-high local density
         for i, node in enumerate(self.nodes_):
-            if i in removed_indices:
-                continue
             # remove nodes outside the map
             if not self.node_valid(node.x, node.y):
                 removed_indices.add(i)
                 continue
-            keep_nodes.append(node)
-            for j in range(i+1, len(self.nodes_)):
-                other = self.nodes_[j]
-                if j in removed_indices:
-                    continue
-                if node.distance_to(other) < min_spacing:
-                    removed_indices.add(j)
 
-        # Remove nodes and update edges
-        self.nodes_ = keep_nodes
+            # compute local density (number of nodes within min_spacing)
+            density = self.local_node_density(node.x, node.y, radius=min_spacing)
+            if density > max_density:
+                removed_indices.add(i)
+
+        old_count = len(self.nodes_)
+        # keep only nodes not marked for removal
+        self.nodes_ = [n for idx, n in enumerate(self.nodes_) if idx not in removed_indices]
+        new_count = len(self.nodes_)
+
+        # Filter edges to only those connecting remaining nodes
         self.edges_ = [(n1, n2) for (n1, n2) in self.edges_ if n1 in self.nodes_ and n2 in self.nodes_]
 
-        # Re-index nodes
+        # Re-index nodes and clean up neighbour lists
+        valid_nodes_set = set(self.nodes_)  # objects are hashable by id; this is fine
         for idx, node in enumerate(self.nodes_):
             node.idx = idx
+            node.neighbours = [n for n in node.neighbours if n in valid_nodes_set]
 
-        # Rebuild neighbours
-        for node in self.nodes_:
-            node.neighbours = [n for n in node.neighbours if n in self.nodes_]
-        self.get_logger().info(f"Pruned clumped nodes, total nodes: {len(self.nodes_)}")
-    
-        # # If robot hasn't moved much, prune nodes within a tighter radius
-        # if not add_nodes:
-        #     self.prune_clumped_nodes(min_spacing=self.min_node_spacing*2.0)
+        # Log result
+        try:
+            self.get_logger().info(
+                f"[PRUNE] Removed {old_count - new_count} clumped nodes (kept {new_count}), "
+                f"min_spacing={min_spacing:.2f} m, max_density={max_density}"
+            )
+        except Exception:
+            # fallback if this object isn't a Node (defensive)
+            print(f"[PRUNE] Removed {old_count - new_count} clumped nodes (kept {new_count})")
+
 
     def __init__(self):
         super().__init__('roadmap_builder')
@@ -192,7 +215,7 @@ class RoadmapBuilder(Node):
         self.connection_radius = 4           # meters to attempt connecting nodes
         self.publish_throttle_sec = 2.0        # don't publish more often than this
 
-        self.node_buffer_distance = 0.7  # meters
+        self.node_buffer_distance = 1.0  # meters
 
         # QoS + publishers/subscribers
         qos = QoSProfile(depth=10,
@@ -554,7 +577,7 @@ class RoadmapBuilder(Node):
         new_edges = []
 
         if new_nodes:
-            new_edges = self.connect_nearby_nodes(radius=self.connection_radius, nodes_to_check=new_nodes)
+            new_edges = self.connect_nearby_nodes(radius=self.connection_radius, nodes_to_check=self.nodes_)
 
         # Failsafe: prune clumped nodes periodically (every 10 seconds)
         if int(now_s) % 10 == 0:

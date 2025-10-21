@@ -234,17 +234,21 @@ class RoadmapPath:
     
     def follow_prm_path(self):
         """Return Twist command to follow current PRM path."""
+
+        cmd = Twist()
+        path_completed = False
+
         if not self.current_path_nodes or self.current_path_index >= len(self.current_path_nodes):
-            return None  # nothing to follow
+            path_completed = True
+            return cmd, path_completed
+
+        
 
         #target node is next to path
         target_node = self.current_path_nodes[self.current_path_index]
         prev_node = self.current_path_nodes[self.current_path_index - 1] if self.current_path_index > 0 else target_node
 
-        # if self.current_path_index > 0:
-        #     prev_node = self.current_path_nodes[self.current_path_index - 1]
-        # else:
-        #     prev_node = target_node
+     
 
         # Project robot onto edge between prev_node and target_node
         projected_pose = self.project_onto_edge(prev_node, target_node)
@@ -252,47 +256,19 @@ class RoadmapPath:
         if projected_pose is None:
             projected_pose = Pose2D(x=target_node.x, y=target_node.y, theta=0.0)
 
-        # # Compute distance along the edge
-        # edge_dx = target_node.x - self.current_pose.x
-        # edge_dy = target_node.y - self.current_pose.y
-        edge_length = math.hypot(projected_pose.x - self.current_pose.x, projected_pose.y - self.current_pose.y)
-
-        # if edge_length < 1e-6:
-        #     # Degenerate edge, just move to next node
-        #     distance_along_edge = math.hypot(target_node.x - self.current_pose.x, target_node.y - self.current_pose.y)
-        # else:
-        #     # vector from prev_node to projected_pose
-        #     proj_dx = projected_pose.x - prev_node.x
-        #     proj_dy = projected_pose.y - prev_node.y
-        #     distance_along_edge = math.hypot(edge_dx - proj_dx, edge_dy - proj_dy)
-
-        # If close enough to the next node along the edge, advance to next edge
-        if edge_length < self.arrival_tol:
-            self.current_path_index += 1
-
-            if self.current_path_index >= len(self.current_path_nodes):
-                return Twist()  # reached end of path
-            
-            # update next edge
-            target_node = self.current_path_nodes[self.current_path_index]
-            prev_node = projected_pose
-
-            projected_pose = self.project_onto_edge(prev_node, target_node)
-
-            edge_length = math.hypot(projected_pose.x - self.current_pose.x, projected_pose.y - self.current_pose.y)
-
-        # generate twist command towards node
         cmd = self.move_toward(projected_pose)
 
-        # # Advance if close enough
-        # distance = math.hypot(target_node.x - self.current_pose.x, target_node.y - self.current_pose.y)
-        # if distance < self.arrival_tol:
-        #     self.current_path_index += 1
+        
+        # Check if reached next node
+        edge_length = math.hypot(projected_pose.x - self.current_pose.x,
+                                projected_pose.y - self.current_pose.y)
 
-        return cmd
+        if edge_length < self.arrival_tol:
+            self.current_path_index += 1
+            if self.current_path_index >= len(self.current_path_nodes):
+                path_completed = True  # signal to Node that path is done
 
-
-
+        return cmd, path_completed
 
 # -----------------------------
 # ROS 2 Node: RoadmapPathNode
@@ -400,14 +376,21 @@ class RoadmapPathNode(Node):
                     self.planner.roadmap.nodes_.append(robot_node)
 
                 nearest_node = self.planner.get_nearest_node(goal.x, goal.y)
+                if robot_node is None or self.planner.get_nearest_node(self.planner.current_pose.x, self.planner.current_pose.y) is None:
+                    self.get_logger().warn("[PRM] Robot not on roadmap — waiting for PRM expansion.")
+                    self.cmd_pub.publish(Twist())
+                    return
+
                 if nearest_node is not None:
                     success = self.planner.plan_path_to_goal(nearest_node.x, nearest_node.y)
                     if not success:
                         self.get_logger().warn("[WARN] Failed to plan PRM path")
                 else:
                     # fallback: move directly toward goal
-                    cmd = self.planner.move_toward(goal)
-                    self.cmd_pub.publish(cmd)
+                    # cmd = self.planner.move_toward(goal)
+                    # self.cmd_pub.publish(cmd)
+                    self.get_logger().warn("[PRM] No reachable PRM node near goal — waiting for roadmap expansion.")
+                    self.cmd_pub.publish(Twist())
                     return
             else:
                 self.get_logger().warn("[WARN] No frontier to explore")
@@ -415,8 +398,9 @@ class RoadmapPathNode(Node):
                 return
 
         # Follow path if available
-        cmd = self.planner.follow_prm_path()
+        cmd, completed = self.planner.follow_prm_path()
         if cmd:
+        # re-project robot onto PRM every few cycles
             self.cmd_pub.publish(cmd)
         else:
             self.cmd_pub.publish(Twist())  # stop if path exhausted
