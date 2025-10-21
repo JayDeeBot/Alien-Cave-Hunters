@@ -176,6 +176,8 @@ class RoadmapBuilder(Node):
         self.connection_radius = 4           # meters to attempt connecting nodes
         self.publish_throttle_sec = 2.0        # don't publish more often than this
 
+        self.node_buffer_distance = 0.7  # meters
+
         # QoS + publishers/subscribers
         qos = QoSProfile(depth=10,
                          durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
@@ -215,6 +217,8 @@ class RoadmapBuilder(Node):
         self.map_data = data
         self.map_received = True
 
+      
+
         # initialize or resize known_map
         if self.known_map is None or self.known_map.shape != (height, width):
             self.known_map = np.zeros((height, width), dtype=bool)
@@ -223,7 +227,7 @@ class RoadmapBuilder(Node):
             occupied = (self.map_data == -1) | (self.map_data > 50)
 
             # buffer
-            buffer_cells = int(0.3 / self.map_resolution)  # 0.3 m safety distance
+            buffer_cells = int(self.node_buffer_distance / self.map_resolution)  # 0.7 m safety distance
             from scipy.ndimage import binary_dilation
             self.known_map = binary_dilation(occupied, structure=np.ones((2*buffer_cells+1, 2*buffer_cells+1)))
 

@@ -205,19 +205,89 @@ class RoadmapPath:
         self.current_path_index = 0
         
         return True
+    
+    def project_onto_edge(self, prev_node, next_node):
+        """Project current robot position onto PRM edge."""
+        if prev_node is None or next_node is None or self.current_pose is None:
+            return None
+
+        # Vector from prev_node to next_node
+        dx = next_node.x - prev_node.x
+        dy = next_node.y - prev_node.y
+        if dx == 0 and dy == 0:
+            return Pose2D(x=prev_node.x, y=prev_node.y, theta=0.0)
+
+        # Vector from prev_node to robot
+        rx = self.current_pose.x - prev_node.x
+        ry = self.current_pose.y - prev_node.y
+
+        # Project robot vector onto edge vector
+        t = (rx*dx + ry*dy) / (dx*dx + dy*dy)
+        t = max(0.0, min(1.0, t))  # clamp to [0,1]
+
+        # Compute closest point on edge
+        x_proj = prev_node.x + t*dx
+        y_proj = prev_node.y + t*dy
+        return Pose2D(x=x_proj, y=y_proj, theta=0.0)
+
 
     
     def follow_prm_path(self):
+        """Return Twist command to follow current PRM path."""
         if not self.current_path_nodes or self.current_path_index >= len(self.current_path_nodes):
             return None  # nothing to follow
 
+        #target node is next to path
         target_node = self.current_path_nodes[self.current_path_index]
-        cmd = self.move_toward(Pose2D(x=target_node.x, y=target_node.y, theta=0.0))
+        prev_node = self.current_path_nodes[self.current_path_index - 1] if self.current_path_index > 0 else target_node
 
-        # Advance if close enough
-        distance = math.hypot(target_node.x - self.current_pose.x, target_node.y - self.current_pose.y)
-        if distance < self.arrival_tol:
+        # if self.current_path_index > 0:
+        #     prev_node = self.current_path_nodes[self.current_path_index - 1]
+        # else:
+        #     prev_node = target_node
+
+        # Project robot onto edge between prev_node and target_node
+        projected_pose = self.project_onto_edge(prev_node, target_node)
+
+        if projected_pose is None:
+            projected_pose = Pose2D(x=target_node.x, y=target_node.y, theta=0.0)
+
+        # # Compute distance along the edge
+        # edge_dx = target_node.x - self.current_pose.x
+        # edge_dy = target_node.y - self.current_pose.y
+        edge_length = math.hypot(projected_pose.x - self.current_pose.x, projected_pose.y - self.current_pose.y)
+
+        # if edge_length < 1e-6:
+        #     # Degenerate edge, just move to next node
+        #     distance_along_edge = math.hypot(target_node.x - self.current_pose.x, target_node.y - self.current_pose.y)
+        # else:
+        #     # vector from prev_node to projected_pose
+        #     proj_dx = projected_pose.x - prev_node.x
+        #     proj_dy = projected_pose.y - prev_node.y
+        #     distance_along_edge = math.hypot(edge_dx - proj_dx, edge_dy - proj_dy)
+
+        # If close enough to the next node along the edge, advance to next edge
+        if edge_length < self.arrival_tol:
             self.current_path_index += 1
+
+            if self.current_path_index >= len(self.current_path_nodes):
+                return Twist()  # reached end of path
+            
+            # update next edge
+            target_node = self.current_path_nodes[self.current_path_index]
+            prev_node = projected_pose
+
+            projected_pose = self.project_onto_edge(prev_node, target_node)
+
+            edge_length = math.hypot(projected_pose.x - self.current_pose.x, projected_pose.y - self.current_pose.y)
+
+        # generate twist command towards node
+        cmd = self.move_toward(projected_pose)
+
+        # # Advance if close enough
+        # distance = math.hypot(target_node.x - self.current_pose.x, target_node.y - self.current_pose.y)
+        # if distance < self.arrival_tol:
+        #     self.current_path_index += 1
 
         return cmd
 
@@ -301,24 +371,7 @@ class RoadmapPathNode(Node):
             roadmap.nodes_ = nodes
             roadmap.edges_ = []  # optional
             self.planner.roadmap = roadmap 
-    # -----------------------------
-    # Timer / Control
-    # -----------------------------
-    # def timer_callback(self):
-    #     robot_pose = self.planner.current_pose
-    #     if robot_pose is None:
-    #         return
 
-    #     frontiers = self.planner.find_frontiers()
-    #     self.get_logger().info(f"[DEBUG] Found {len(frontiers)} frontiers")
-
-    #     goal = self.planner.choose_frontier(frontiers, robot_pose)
-    #     if goal:
-    #         cmd = self.planner.move_toward(goal)
-    #         self.get_logger().info(f"[DEBUG] Publishing velocity: {cmd.linear.x}, {cmd.angular.z}")
-    #         self.cmd_pub.publish(cmd)
-    #         self.get_logger().info(f"Moving toward frontier at ({goal.x:.2f},{goal.y:.2f})")
-    
     # -----------------------------
     # Timer / Control
     # -----------------------------
@@ -326,32 +379,47 @@ class RoadmapPathNode(Node):
         if self.planner.current_pose is None:
             return
 
-        # If no path exists or path completed
-        if not self.planner.current_path_nodes or self.planner.current_path_index >= len(self.planner.current_path_nodes):
-            # 1. Find frontiers
-            frontiers = self.planner.find_frontiers()
-            # self.get_logger().info(f"[DEBUG] Found {len(frontiers)} frontiers")
+        path_finished = (not self.planner.current_path_nodes or
+                        self.planner.current_path_index >= len(self.planner.current_path_nodes))
 
-            # 2. Choose closest frontier
+        if path_finished:
+            # Find frontiers
+            frontiers = self.planner.find_frontiers()
             goal = self.planner.choose_frontier(frontiers, self.planner.current_pose)
+
             if goal:
-                # 3. Find closest PRM node to frontier
+                # Ensure PRM has a node at robot position
+                robot_node = self.planner.get_nearest_node(self.planner.current_pose.x, self.planner.current_pose.y)
+                if robot_node is None:
+                    # create temporary node at robot
+                    robot_node = type('GraphNode', (), {})()
+                    robot_node.x = self.planner.current_pose.x
+                    robot_node.y = self.planner.current_pose.y
+                    robot_node.idx = -1
+                    robot_node.neighbours = []
+                    self.planner.roadmap.nodes_.append(robot_node)
+
                 nearest_node = self.planner.get_nearest_node(goal.x, goal.y)
-                if nearest_node:
-                    # 4. Plan path along PRM nodes toward this node
-                    self.planner.plan_path_to_goal(nearest_node.x, nearest_node.y)
-                    self.get_logger().info(f"[DEBUG] Planning path to PRM node at ({nearest_node.x:.2f},{nearest_node.y:.2f})")
+                if nearest_node is not None:
+                    success = self.planner.plan_path_to_goal(nearest_node.x, nearest_node.y)
+                    if not success:
+                        self.get_logger().warn("[WARN] Failed to plan PRM path")
                 else:
-                    self.get_logger().warn("[WARN] No PRM nodes available to plan path")
+                    # fallback: move directly toward goal
+                    cmd = self.planner.move_toward(goal)
+                    self.cmd_pub.publish(cmd)
+                    return
             else:
                 self.get_logger().warn("[WARN] No frontier to explore")
+                self.cmd_pub.publish(Twist())  # stop if nothing to explore
+                return
 
-        # 5. Follow PRM path
+        # Follow path if available
         cmd = self.planner.follow_prm_path()
         if cmd:
             self.cmd_pub.publish(cmd)
-
-
+        else:
+            self.cmd_pub.publish(Twist())  # stop if path exhausted
 # -----------------------------
 # Main
 # -----------------------------
