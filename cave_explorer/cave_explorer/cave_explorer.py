@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # ### Perception 2 Imports ###
 import numpy as np
 
@@ -310,7 +308,7 @@ class CaveExplorer(Node):
         # --- Perception 3: simple artifacts store ---
         self.artifacts: list[Artifact] = []
         self.next_artifact_id = 1
-        self.merge_dist_m = 5.0  # meters; detections within this distance are merged
+        self.merge_dist_m = 15.0  # meters; detections within this distance are merged
 
         # Portable path: <this_file_dir>/artifact_detections/detections.json
         self.artifact_json_path = (Path(__file__).resolve().parent
@@ -413,65 +411,6 @@ class CaveExplorer(Node):
         self.last_depth_header = msg.header
         if self.use_depth_for_localisation:
             self.camera_frame_id = (msg.header.frame_id or self.camera_frame_id)
-
-    # def _project_pixel_to_ray(self, u: float, v: float):
-    #     """Return a (unit-ish) ray direction in camera frame for pixel (u,v)."""
-    #     if not all([self.fx, self.fy, self.cx, self.cy]):
-    #         return None
-    #     x = (u - self.cx) / self.fx
-    #     y = (v - self.cy) / self.fy
-    #     z = 1.0
-    #     norm = math.sqrt(x*x + y*y + z*z)
-    #     return (x / norm, y / norm, z / norm)
-
-    # def _depth_at(self, depth_img: np.ndarray, box_xyxy, fallback_center):
-    #     """
-    #     Robust depth: median inside a small central window of the detection.
-    #     box_xyxy: [x1,y1,x2,y2]; fallback_center: (u,v).
-    #     Returns depth in meters or None.
-    #     """
-    #     if depth_img is None:
-    #         return None
-    #     h, w = depth_img.shape[:2]
-    #     x1,y1,x2,y2 = box_xyxy
-    #     u0 = int((x1 + x2) * 0.5); v0 = int((y1 + y2) * 0.5)
-    #     k = 5
-    #     u1 = max(0, u0 - k); u2 = min(w-1, u0 + k)
-    #     v1 = max(0, v0 - k); v2 = min(h-1, v0 + k)
-    #     patch = depth_img[v1:v2+1, u1:u2+1]
-    #     if patch.size == 0:
-    #         u0, v0 = map(int, fallback_center)
-    #         if 0 <= v0 < h and 0 <= u0 < w:
-    #             d = float(depth_img[v0, u0])
-    #             return d if d > 0 else None
-    #         return None
-    #     vals = patch.reshape(-1)
-    #     vals = vals[np.isfinite(vals)]
-    #     vals = vals[vals > 0]
-    #     if vals.size == 0:
-    #         return None
-    #     return float(np.mean(vals)) # Updated to mean rather than median for stability
-
-    # def _transform_cam_point_to_map(self, px, py, pz, stamp_msg, cam_frame: str):
-    #     """TF transform a camera-frame 3D point to map frame."""
-    #     ps = PointStamped()
-    #     ps.header.frame_id = cam_frame
-    #     ps.header.stamp = stamp_msg
-    #     ps.point.x = float(px); ps.point.y = float(py); ps.point.z = float(pz)
-
-    #     try:
-    #         return self.tf_buffer.transform(
-    #             ps, 'map', timeout=Duration(seconds=0.5)
-    #         ).point
-    #     except Exception as e1:
-    #         try:
-    #             ps.header.stamp = self.get_clock().now().to_msg()
-    #             return self.tf_buffer.transform(
-    #                 ps, 'map', timeout=Duration(seconds=0.5)
-    #             ).point
-    #         except Exception as e2:
-    #             self.get_logger().warn(f"TF transform failed (stamped & latest): {e1} | {e2}")
-    #             return None
 
     def estimate_artifact_direction(self, u: float, v: float, cam_frame: str):
         """
@@ -584,69 +523,6 @@ class CaveExplorer(Node):
         self.get_logger().warn(f'Pose: {pose}')
 
         return pose
-    
-    # def localise_artifact(self):
-    #     """
-    #     Compute artifact locations in the map frame using:
-    #     - pixel center of each detection (u,v)
-    #     - depth median in a small window around the box center
-    #     - SDF-derived camera intrinsics (fx, fy, cx, cy)
-    #     - TF transform from camera frame to 'map'
-
-    #     Each measurement is merged into an artifact bucket if within self.merge_dist_m.
-    #     Class is decided by majority vote over all detections at that location.
-    #     """
-    #     intrinsics_ready = all([self.fx, self.fy, self.cx, self.cy])
-    #     if not intrinsics_ready:
-    #         self.get_logger().warn("[Artifacts] Missing intrinsics (fx,fy,cx,cy).")
-    #         return
-    #     if self.use_depth_for_localisation and self.latest_depth is None:
-    #         self.get_logger().warn("[Artifacts] No depth yet.")
-    #         return
-    #     if not self.latest_detections:
-    #         return
-
-    #     if self.use_depth_for_localisation and self.last_depth_header is not None:
-    #         stamp_for_tf = self.last_depth_header.stamp
-    #         cam_frame = (self.last_depth_header.frame_id or
-    #                     self.camera_frame_id or
-    #                     (self.last_image_header.frame_id if self.last_image_header else 'camera_link'))
-    #     else:
-    #         stamp_for_tf = (self.last_image_header.stamp if self.last_image_header else self.get_clock().now().to_msg())
-    #         cam_frame = (self.camera_frame_id or
-    #                     (self.last_image_header.frame_id if self.last_image_header else 'camera_link'))
-
-    #     updates = 0
-    #     for det in self.latest_detections:
-    #         x1, y1, x2, y2 = det["xyxy"]
-    #         u = 0.5 * (x1 + x2); v = 0.5 * (y1 + y2)
-
-    #         ray = self._project_pixel_to_ray(u, v)
-    #         if ray is None:
-    #             continue
-
-    #         depth = self._depth_at(self.latest_depth, [x1, y1, x2, y2], (u, v)) if self.use_depth_for_localisation else 2.0
-    #         if depth is None or not np.isfinite(depth) or depth <= 0.0:
-    #             continue
-
-    #         px_cam = ray[0] * depth
-    #         py_cam = ray[1] * depth
-    #         pz_cam = ray[2] * depth
-
-    #         p_map = self._transform_cam_point_to_map(px_cam, py_cam, pz_cam, stamp_for_tf, cam_frame)
-    #         if p_map is None:
-    #             continue
-
-    #         cls_id = det.get("cls", -1)
-    #         cls_name = (self.class_names[cls_id]
-    #                     if (isinstance(cls_id, int) and 0 <= cls_id < len(self.class_names))
-    #                     else f"class_{cls_id}")
-
-    #         self._upsert_artifact(p_map.x, p_map.y, cls_name)
-    #         updates += 1
-
-    #     if updates > 0:
-    #         self.publish_artifact_markers()
 
     def localise_artifact(self):
         """
