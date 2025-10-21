@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ### Perception 2 Imports ###
 import numpy as np
 
@@ -9,40 +10,57 @@ except Exception as e:
 ### --------------------- ###
 
 ### Perception 3 Imports ###
+=======
+#!/usr/bin/env python3
+
+import cv2
+>>>>>>> 452e584f1328191642f6486d741510e869f0fcdf
 import json
-from pathlib import Path
-from geometry_msgs.msg import PointStamped
-import time
-from rclpy.duration import Duration
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
-import tf2_geometry_msgs  # <-- add this line (side-effect registers PointStamped)
-
-from dataclasses import dataclass, field
-### --------------------- ###
-
-
 import math
-import random
-from enum import Enum
-
-import cv2  # OpenCV2
+import time
 import rclpy
+import numpy as np
+import tf2_geometry_msgs
+
+from pathlib import Path
+from ultralytics import YOLO
+
+from rclpy.duration import Duration
+from sensor_msgs.msg import CameraInfo
+from geometry_msgs.msg import PointStamped
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
+
+from enum import Enum
 from cv_bridge import CvBridge
-from geometry_msgs.msg import Pose, Pose2D, PoseStamped, Point
-from nav2_msgs.action import NavigateToPose
-from nav_msgs.msg import OccupancyGrid
-from rclpy.action import ActionClient
+from dataclasses import dataclass, field
+
 from rclpy.node import Node
 from sensor_msgs.msg import Image
+from rclpy.action import ActionClient
+from nav_msgs.msg import OccupancyGrid
+from nav2_msgs.action import NavigateToPose
+
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
+from geometry_msgs.msg import Pose, Pose2D, PoseStamped, Point
 from cave_explorer.path_planner import PathPlanner
 
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
 
+###########################################
+##### ----- Classless Functions ----- #####
+###########################################
+
+dummy_artifacts = [
+    [23,5],
+    [52,6],
+    [-4,30],
+    [54,33]
+]
+    
 
 def wrap_angle(angle):
     """Function to wrap an angle between 0 and 2*Pi"""
@@ -60,12 +78,14 @@ def pose2d_to_pose(pose_2d):
 
     pose.position.x = pose_2d.x
     pose.position.y = pose_2d.y
-
     pose.orientation.w = math.cos(pose_2d.theta / 2.0)
     pose.orientation.z = math.sin(pose_2d.theta / 2.0)
-
     return pose
 
+
+#########################################
+##### ----- Classes n Structs ----- #####
+#########################################
 
 class PlannerType(Enum):
     ERROR = 0
@@ -76,26 +96,30 @@ class PlannerType(Enum):
     RANDOM_GOAL = 5
     FRONTIER_EXPLORATION = 6
     ARTIFACT_EXPLORATION = 7
-    # Add more!
 
-# --- Perception 3: Artifact record (no Kalman, simple merge) ---
 @dataclass
 class Artifact:
     """
-    Class-aware, confidence-weighted artifact track in map coordinates.
-      - cls: fixed class label (e.g., "mushroom")
-      - x, y: confidence-weighted running mean of positions
-      - conf_avg: confidence-weighted running mean of detection confidences
-      - weight_sum: total confidence weight accumulated (for numerically stable updates)
+    Minimal world-coordinate artifact record.
+
+    We maintain:
+      - (x, y): fused position in map frame
+      - votes: {class_name: count} for majority voting
+      - n: total detections merged at this location
+      - last_update: timestamp for housekeeping
+    Fusion uses a lightweight EMA (alpha) to keep points stable.
     """
     id: int
-    cls: str
+    cls: str   
     x: float
     y: float
-    conf_avg: float
-    weight_sum: float
-    n: int = 0
+    conf_avg: float = 0.0
+    weight_sum: float = 0.0
+    #votes: dict = field(default_factory=dict)  # {cls_name: count}
+    n: int = 0                                  # total detections fused here
     last_update: float = 0.0
+    time_examined: float = 0.0
+    visited: bool = False
 
     def add(self, x_new: float, y_new: float, conf_new: float):
         """
@@ -125,7 +149,10 @@ class Artifact:
             "n": self.n,
             "last_update": self.last_update,
         }
-# --- end Perception 3 ---
+
+##################################
+##### ----- Cave Class ----- #####
+##################################
 
 class CaveExplorer(Node):
     def __init__(self):
@@ -135,16 +162,13 @@ class CaveExplorer(Node):
         self.xlim_ = [0.0, 0.0]
         self.ylim_ = [0.0, 0.0]
 
-        # Variables/Flags for perception
-        self.artifact_found_ = False
-
         # Variables/Flags for planning
         self.planner_type_ = PlannerType.ERROR
         self.reached_first_artifact_ = False
         self.returned_home_ = False
 
+        #### ---- Artifact Vars ---- ####
         # Marker for artifact locations
-        # See https://wiki.ros.org/rviz/DisplayTypes/Marker
         self.marker_artifacts_ = Marker()
         self.marker_artifacts_.header.frame_id = "map"
         self.marker_artifacts_.ns = "artifacts"
@@ -169,18 +193,33 @@ class CaveExplorer(Node):
 
         # Remember the artifact locations
         self.artifact_locations_ = []
+        self.artifact_timeout = 8
+        self.artifact_found_ = False
+        self.artifacts: list[Artifact] = []
+        self.next_artifact_id = 0
+        self.merge_dist_m = 5.0  # meters; detections within this distance are merged
+        self.target_artifact = None
+
+        self.dummy_artfacts = []
+        for art_pose in dummy_artifacts:
+            art = Artifact(id=self.next_artifact_id,x=art_pose[0],y=art_pose[1], cls='mushroom')
+            self.next_artifact_id += 1
+
+            self.dummy_artfacts.append(art)
+        
+        # Cache detections for planning/localisation
+        self.latest_detections = []  # list of dicts per frame
 
         # Initialise CvBridge
         self.cv_bridge_ = CvBridge()
-
-        #Create path_planner
-        self.path_planner = PathPlanner(self)
-        self.use_classic = False
 
         # Prepare transformation to get robot pose
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
+        #### ---- Navigation Vars ---- ####
+        self.path_planner = PathPlanner(self)
+        
         # Action client for nav2
         self.nav2_action_client_ = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.get_logger().warn('Waiting for navigate_to_pose action...')
@@ -189,21 +228,6 @@ class CaveExplorer(Node):
         self.ready_for_next_goal_ = True
         self.declare_parameter('print_feedback', rclpy.Parameter.Type.BOOL)
 
-        # Publisher for the goal pose visualisation
-        self.goal_pose_vis_ = self.create_publisher(PoseStamped, 'goal_pose', 1)
-
-        # QoS profile for image and camera info subscriptions
-        sensor_qos = QoSProfile(
-            reliability=QoSReliabilityPolicy.BEST_EFFORT,
-            history=QoSHistoryPolicy.KEEP_LAST,
-            depth=10
-        )
-
-        # Subscribe to the map topic to get current bounds
-        self.map_sub_ = self.create_subscription(OccupancyGrid, 'map',  self.map_callback, 1)
-
-        # Prepare image processing
-        self.image_detections_pub_ = self.create_publisher(Image, 'detections_image', 1)
 
         # --- Perception 2: YOLO setup ---
         self.declare_parameter('yolo_model_path', rclpy.Parameter.Type.STRING)
@@ -221,28 +245,23 @@ class CaveExplorer(Node):
         self.class_names = list(self.get_parameter('yolo_classes').value)
         self.use_depth_for_localisation = bool(self.get_parameter('use_depth_for_localisation').value)
 
-        # Subscribe to camera (adjust topic elsewhere if needed)
         self.image_msgs_seen = 0
-        self.image_sub_ = self.create_subscription(Image, 'camera/image', self.image_callback, sensor_qos)
 
         # Load YOLO model
         self.yolo_model = None
-        if _HAS_YOLO:
+        try:
+            model_path = self.get_parameter('yolo_model_path').value
+            self.yolo_model = YOLO(model_path)
+            self.get_logger().warn(f"[YOLO] Loaded model: {model_path}")
             try:
-                model_path = self.get_parameter('yolo_model_path').value
-                self.yolo_model = YOLO(model_path)
-                self.get_logger().warn(f"[YOLO] Loaded model: {model_path}")
-                try:
-                    self.get_logger().warn(f"[YOLO] model.names: {self.yolo_model.names}")
-                except Exception:
-                    pass
-                if self.class_names:
-                    self.get_logger().warn(f"[YOLO] class_names (param): {self.class_names}")
-            except Exception as e:
-                self.get_logger().error(f"[YOLO] Failed to load model: {e}")
-        else:
-            self.get_logger().error("[YOLO] Ultralytics not installed. Try: python3 -m pip install --user ultralytics opencv-python")
-
+                self.get_logger().warn(f"[YOLO] model.names: {self.yolo_model.names}")
+            except Exception:
+                pass
+            if self.class_names:
+                self.get_logger().warn(f"[YOLO] class_names (param): {self.class_names}")
+        except Exception as e:
+            self.get_logger().error(f"[YOLO] Failed to load model: {e}")
+      
         # Build a name->id map from the model
         name_to_id = {}
         if hasattr(self.yolo_model, 'names'):
@@ -277,9 +296,7 @@ class CaveExplorer(Node):
         else:
             self.get_logger().info("[YOLO] No yolo_allowed_class_names provided; detecting all classes.")
 
-        # --- end Perception 2 ---
 
-        # --- Perception 3: intrinsics & depth (from SDF) ---
         # Use SDF-provided intrinsics instead of /camera_info
         self.declare_parameter('use_sdf_intrinsics', True)       # True since /camera_info is missing
         self.declare_parameter('sdf_hfov_rad', 2.0944)           # ≈120 deg
@@ -300,6 +317,7 @@ class CaveExplorer(Node):
         self.last_image_header = None
         self.camera_frame_id = None  # Set from image header
 
+<<<<<<< HEAD
         # Subscribe to depth image
         self.depth_sub_ = self.create_subscription(
             Image, 'camera/depth/image', self.depth_callback, sensor_qos
@@ -310,6 +328,8 @@ class CaveExplorer(Node):
         self.next_artifact_id = 1
         self.merge_dist_m = 15.0  # meters; detections within this distance are merged
 
+=======
+>>>>>>> 452e584f1328191642f6486d741510e869f0fcdf
         # Portable path: <this_file_dir>/artifact_detections/detections.json
         self.artifact_json_path = (Path(__file__).resolve().parent
                                 / "artifact_detections" / "detections.json")
@@ -320,14 +340,41 @@ class CaveExplorer(Node):
             json.dump({"artifacts": []}, f, indent=2)
         # --- end Perception 3 ---
 
-        # Cache detections for planning/localisation
-        self.latest_detections = []  # list of dicts per frame
+
+        #### ---- Pubs/Subs ---- ####
+        self.goal_pose_vis_ = self.create_publisher(PoseStamped, 'goal_pose', 1)
+        self.image_detections_pub_ = self.create_publisher(Image, 'detections_image', 1)
+
+        # QoS profile for image and camera info subscriptions
+        sensor_qos = QoSProfile(
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=10
+        )
+
+        self.map_sub_ = self.create_subscription(OccupancyGrid, 'map',  self.map_callback, 1)
+        self.image_sub_ = self.create_subscription(Image, 'camera/image', self.image_callback, sensor_qos)
+        self.depth_sub_ = self.create_subscription(Image, 'camera/depth/image', self.depth_callback, sensor_qos)
 
         # Timer for main loop
-        if self.use_classic:
-            self.main_loop_timer_ = self.create_timer(0.2, self.main_loop_classic)
-        else:
-            self.main_loop_timer_ = self.create_timer(0.2, self.main_loop)
+        self.main_loop_timer_ = self.create_timer(0.2, self.main_loop)
+
+#############################################
+##### ----- Dummy Functions ----- #####
+#############################################
+    def dummy_artifact_check(self, range=12):
+        rob_pose = self.get_pose_2d()
+        for art in self.dummy_artfacts:
+            dist = math.sqrt((art.x - rob_pose.x)**2 + (art.y - rob_pose.y)**2)
+            # self.get_logger().warn(f"calculated distance {dist}")
+            if dist <= range and art.time_examined < self.artifact_timeout:
+                return art
+            
+        return None
+
+#############################################
+##### ----- Calculation Functions ----- #####
+#############################################
 
     ### Perception 3 ###
     def _set_intrinsics_from_sdf(self, img_w: int, img_h: int):
@@ -396,22 +443,14 @@ class CaveExplorer(Node):
         except Exception as e:
             self.get_logger().warn(f"[Artifacts] Failed to persist JSON: {e}")
 
-    def depth_callback(self, msg: Image):
-        depth = self.cv_bridge_.imgmsg_to_cv2(msg, desired_encoding='passthrough')
-        if depth is None:
-            self.latest_depth = None
-            self.last_depth_header = None
-            return
-        if depth.dtype == np.uint16:
-            depth = depth.astype(np.float32) * 0.001  # mm -> m
-        elif depth.dtype != np.float32:
-            depth = depth.astype(np.float32)
-        self.latest_depth = depth
-        self.depth_h, self.depth_w = depth.shape[:2]
-        self.last_depth_header = msg.header
-        if self.use_depth_for_localisation:
-            self.camera_frame_id = (msg.header.frame_id or self.camera_frame_id)
 
+<<<<<<< HEAD
+=======
+##########################################
+##### ----- Artifact Functions ----- #####
+##########################################  
+
+>>>>>>> 452e584f1328191642f6486d741510e869f0fcdf
     def estimate_artifact_direction(self, u: float, v: float, cam_frame: str):
         """
         From a pixel (u,v), compute:
@@ -492,8 +531,7 @@ class CaveExplorer(Node):
             return None
         return float(np.mean(vals))
 
-    ### --------------------- ###
-    
+
     def get_pose_2d(self):
         """Get the 2d pose of the robot"""
 
@@ -523,7 +561,11 @@ class CaveExplorer(Node):
         self.get_logger().warn(f'Pose: {pose}')
 
         return pose
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 452e584f1328191642f6486d741510e869f0fcdf
     def localise_artifact(self):
         """
         New localisation pipeline:
@@ -669,6 +711,22 @@ class CaveExplorer(Node):
 ##### ----- Callback Functions ----- #####
 ##########################################
 
+    def depth_callback(self, msg: Image):
+        depth = self.cv_bridge_.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+        if depth is None:
+            self.latest_depth = None
+            self.last_depth_header = None
+            return
+        if depth.dtype == np.uint16:
+            depth = depth.astype(np.float32) * 0.001  # mm -> m
+        elif depth.dtype != np.float32:
+            depth = depth.astype(np.float32)
+        self.latest_depth = depth
+        self.depth_h, self.depth_w = depth.shape[:2]
+        self.last_depth_header = msg.header
+        if self.use_depth_for_localisation:
+            self.camera_frame_id = (msg.header.frame_id or self.camera_frame_id)
+
     def map_callback(self, map_msg: OccupancyGrid):
         """New map received, so update x and y limits"""
 
@@ -686,7 +744,6 @@ class CaveExplorer(Node):
         self.latest_map_ = map_msg
         self.path_planner.latest_map_ = map_msg  #forward map to PathPlanner
 
-    ### Perception 2 ###
     def image_callback(self, image_msg):
         # Count frames
         self.image_msgs_seen += 1
@@ -850,175 +907,54 @@ class CaveExplorer(Node):
             feedback_callback=feedback_method)
         self.send_goal_future_.add_done_callback(self.goal_response_callback)
 
-    def planner_move_forwards(self, distance):
-        """Simply move forward by the specified distance"""
-
-        pose_2d = self.get_pose_2d()
-
-        pose_2d.x += distance * math.cos(pose_2d.theta)
-        pose_2d.y += distance * math.sin(pose_2d.theta)
-
-        self.planner_go_to_pose2d(pose_2d)
-
-    def planner_go_to_first_artifact(self):
-        """Go to a pre-specified artifact location"""
-
-        goal_pose2d = Pose2D(
-            x = 18.1,
-            y = 6.6,
-            theta = math.pi/2
-        )
-        self.planner_go_to_pose2d(goal_pose2d)
-
-    def planner_return_home(self):
-        """Return to the origin"""
-
-        goal_pose2d = Pose2D(
-            x = 0.0,
-            y = 0.0,
-            theta = math.pi
-        )
-        self.planner_go_to_pose2d(goal_pose2d)
-
-    def planner_random_walk(self):
-        """Go to a random location, which may be invalid"""
-
-        # Select a random location
-        goal_pose2d = Pose2D(
-            x = random.uniform(self.xlim_[0], self.xlim_[1]),
-            y = random.uniform(self.ylim_[0], self.ylim_[1]),
-            theta = random.uniform(0, 2*math.pi)
-        )
-        self.planner_go_to_pose2d(goal_pose2d)
-
-    def planner_random_goal(self):
-        """Go to a random location out of a predefined set"""
-
-        random_goals = [[15.2, 2.2],
-                        [30.7, 2.2],
-                        [43.0, 11.3],
-                        [36.6, 21.9],
-                        [33.0, 30.4],
-                        [40.4, 44.3],
-                        [51.5, 37.8],
-                        [16.0, 24.1],
-                        [3.4, 33.5],
-                        [7.9, 13.8],
-                        [14.2, 37.7]]
-
-        goal_valid = False
-        while not goal_valid:
-            idx = random.randint(0,len(random_goals)-1)
-            goal_x = random_goals[idx][0]
-            goal_y = random_goals[idx][1]
-
-            if goal_x > self.xlim_[0] and goal_x < self.xlim_[1] and \
-               goal_y > self.ylim_[0] and goal_y < self.ylim_[1]:
-                goal_valid = True
-            else:
-                self.get_logger().warn(f'Goal [{goal_x}, {goal_y}] out of bounds')
-
-        goal_pose2d = Pose2D(
-            x = goal_x,
-            y = goal_y,
-            theta = random.uniform(0, 2*math.pi)
-        )
-        self.planner_go_to_pose2d(goal_pose2d)
-
 #################################
 ##### ----- Main Loop ----- #####
 #################################
 
     def main_loop(self):
-        """
-        Set the next goal pose and send to the action server
-        """
-        # Don't do anything until SLAM is launched
-        if not self.tf_buffer.can_transform(
-                'map',
-                'base_link',
-                rclpy.time.Time()):
-            self.get_logger().warn('Waiting for transform... Have you launched a SLAM node?')
-            return
-        
-        #Set planner type to frontier
-        if self.artifact_found_:
-            self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
-            #self.planner_type_ = PlannerType.ARTIFACT_EXPLORATION
-        else:
-            self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
+            """
+            Set the next goal pose and send to the action server
+            """
+            self.get_logger().info("------------------------------------------------")
 
-        self.get_logger().info(f'Calling planner: {self.planner_type_.name}')
-
-        if self.planner_type_ == PlannerType.FRONTIER_EXPLORATION:
-            if hasattr(self.path_planner, 'latest_map_') and self.path_planner.latest_map_ is not None:
-                self.path_planner.frontier_exploration_step()
+            # Don't do anything until SLAM is launched
+            if not self.tf_buffer.can_transform(
+                    'map',
+                    'base_link',
+                    rclpy.time.Time()):
+                self.get_logger().warn('Waiting for transform... Have you launched a SLAM node?')
+                return
+            
+            #######################################################
+            #Set planner type
+            artfiact_result = self.dummy_artifact_check()
+            if artfiact_result != None:
+                self.get_logger().info("Found artiact")
+                if artfiact_result.time_examined < self.artifact_timeout:
+                    self.planner_type_ = PlannerType.ARTIFACT_EXPLORATION
+                else:
+                    self.planner_type_ = PlannerType.FRONTIER_EXPLORATION 
             else:
-                self.get_logger().warn('No map received yet. Cannot perform frontier exploration.')
-        else:
-            self.get_logger().error('No valid planner selected')
+                self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
 
-    def main_loop_classic(self):
-        """
-        Original main loop
-        """
-        
-        # Don't do anything until SLAM is launched
-        if not self.tf_buffer.can_transform(
-                'map',
-                'base_link',
-                rclpy.time.Time()):
-            self.get_logger().warn('Waiting for transform... Have you launched a SLAM node?')
-            return
+            self.get_logger().info(f'Calling planner: {self.planner_type_.name}')
 
-        #######################################################
-        # Update flags related to the progress of the current planner
+            #######################################################
+            #Execute Planner
+            if self.planner_type_ == PlannerType.FRONTIER_EXPLORATION:
+                if hasattr(self.path_planner, 'latest_map_') and self.path_planner.latest_map_ is not None:
+                    self.path_planner.frontier_exploration_step()
+                else:
+                    self.get_logger().warn('No map received yet. Cannot perform frontier exploration.')
+            elif self.planner_type_ == PlannerType.ARTIFACT_EXPLORATION:
+                    self.get_logger().info(f"Mvoing to artfact, it has id: {artfiact_result.id}, it has pose x: {artfiact_result.x}, y: {artfiact_result.y}")
+                    self.path_planner.artifact_exploration_step(artfiact_result)
+            else:
+                self.get_logger().error('No valid planner selected')
 
-        if not self.ready_for_next_goal_:
-            return
-
-        self.ready_for_next_goal_ = False
-
-        if self.planner_type_ == PlannerType.GO_TO_FIRST_ARTIFACT:
-            self.get_logger().info('Successfully reached first artifact!')
-            self.reached_first_artifact_ = True
-        if self.planner_type_ == PlannerType.RETURN_HOME:
-            self.get_logger().info('Successfully returned home!')
-            self.returned_home_ = True
-
-        #######################################################
-        # Select the next planner to execute
-        if not self.reached_first_artifact_:
-            self.planner_type_ = PlannerType.GO_TO_FIRST_ARTIFACT
-        elif not self.returned_home_:
-            self.planner_type_ = PlannerType.RETURN_HOME
-        else:
-            self.planner_type_ = PlannerType.RANDOM_GOAL
-
-        #######################################################
-        # Execute the planner
-        self.get_logger().info(f'Calling planner: {self.planner_type_.name}')
-        if self.planner_type_ == PlannerType.MOVE_FORWARDS:
-            self.planner_move_forwards(10)
-        elif self.planner_type_ == PlannerType.GO_TO_FIRST_ARTIFACT:
-            self.planner_go_to_first_artifact()
-        elif self.planner_type_ == PlannerType.RETURN_HOME:
-            self.planner_return_home()
-        elif self.planner_type_ == PlannerType.RANDOM_WALK:
-            self.planner_random_walk()
-        elif self.planner_type_ == PlannerType.RANDOM_GOAL:
-            self.planner_random_goal()
-        else:
-            self.get_logger().error('No valid planner selected')
-            self.destroy_node()
-        #######################################################
-
+    
 def main():
-    # Initialise
     rclpy.init()
-
-    # Create the cave explorer
     cave_explorer = CaveExplorer()
-
     while rclpy.ok():
         rclpy.spin(cave_explorer)
