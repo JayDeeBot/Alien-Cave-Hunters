@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from platform import node
 import rclpy    
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSHistoryPolicy
@@ -61,19 +62,62 @@ class RoadmapBuilder(Node):
             if 0 <= mx < self.map_data.shape[1] and 0 <= my < self.map_data.shape[0]:
                 self.known_map[my, mx] = True
 
+        # before adding node
+        if not self.node_valid(rx, ry):
+            return None
+
         return node
+    # -------------------------
+    # Collision checking helper
+    # -------------------------
+    def edge_valid(self, x1, y1, x2, y2, step=0.05):
+        """Return True if straight line from (x1,y1) to (x2,y2) does not cross occupied map cells."""
+        if self.map_data is None:
+            return True
+
+        dist = math.hypot(x2 - x1, y2 - y1)
+        steps = max(1, int(dist / step))
+        for i in range(steps + 1):
+            t = i / steps
+            x = x1 + t * (x2 - x1)
+            y = y1 + t * (y2 - y1)
+            mx, my = self.world_to_map(x, y)
+            if not (0 <= mx < self.map_data.shape[1] and 0 <= my < self.map_data.shape[0]):
+                return False
+            if self.map_data[my, mx] > 50:  # occupied threshold
+                return False
+        return True
     
+    # -------------------------
+    # Node validity helper
+    # -------------------------
+    def node_valid(self, x, y):
+        """Return True if world (x,y) maps to a free map cell."""
+        if self.map_data is None:
+            return True
+        mx, my = self.world_to_map(x, y)
+        if not (0 <= mx < self.map_data.shape[1] and 0 <= my < self.map_data.shape[0]):
+            return False
+        if self.map_data[my, mx] > 50:  # occupied
+            return False
+        return True
+
+
     def prune_clumped_nodes(self, min_spacing=None):
         """Remove nodes that are excessively clumped together to reduce computational weight."""
 
         if min_spacing is None:
-            min_spacing = self.min_node_spacing * 1.5  # Use a slightly larger threshold for pruning
+            min_spacing = self.min_node_spacing * 3  # Use a slightly larger threshold for pruning
 
         keep_nodes = []
         removed_indices = set()
 
         for i, node in enumerate(self.nodes_):
             if i in removed_indices:
+                continue
+            # remove nodes outside the map
+            if not self.node_valid(node.x, node.y):
+                removed_indices.add(i)
                 continue
             keep_nodes.append(node)
             for j in range(i+1, len(self.nodes_)):
@@ -96,6 +140,10 @@ class RoadmapBuilder(Node):
             node.neighbours = [n for n in node.neighbours if n in self.nodes_]
         self.get_logger().info(f"Pruned clumped nodes, total nodes: {len(self.nodes_)}")
     
+        # If robot hasn't moved much, prune nodes within a tighter radius
+        if not add_nodes:
+            self.prune_clumped_nodes(min_spacing=self.min_node_spacing*2.0)
+
     def __init__(self):
         super().__init__('roadmap_builder')
 
@@ -117,8 +165,8 @@ class RoadmapBuilder(Node):
         self.initial_prm_nodes = 200        # initial PRM size
         self.incremental_samples_per_tick = 30
         self.incremental_sample_radius = 4.0   # meters around robot to sample
-        self.min_node_spacing = 0.25           # meters minimum spacing between nodes
-        self.connection_radius = 2.5           # meters to attempt connecting nodes
+        self.min_node_spacing = 0.5           # meters minimum spacing between nodes
+        self.connection_radius = 4           # meters to attempt connecting nodes
         self.publish_throttle_sec = 2.0        # don't publish more often than this
 
         # QoS + publishers/subscribers
@@ -164,12 +212,15 @@ class RoadmapBuilder(Node):
         if self.known_map is None or self.known_map.shape != (height, width):
             self.known_map = np.zeros((height, width), dtype=bool)
 
-            # mark unknown/occupied as True so we don't place nodes there
-            self.known_map[self.map_data == -1] = True
-            self.known_map[self.map_data > 50] = True
+            # mark unknown/occupied 
+            occupied = (self.map_data == -1) | (self.map_data > 50)
+
+            # buffer
+            buffer_cells = int(0.3 / self.map_resolution)  # 0.3 m safety distance
+            from scipy.ndimage import binary_dilation
+            self.known_map = binary_dilation(occupied, structure=np.ones((2*buffer_cells+1, 2*buffer_cells+1)))
 
             # initial PRM covering currently known free cells
-            self.get_logger().info(f"Received map {width}x{height}, res={self.map_resolution:.3f}. Creating initial PRM")
             initial = self.create_prm(num_nodes=self.initial_prm_nodes)
             self.connect_nearby_nodes(radius=self.connection_radius)
 
@@ -235,11 +286,11 @@ class RoadmapBuilder(Node):
         new_nodes = []
 
         for (y, x) in chosen:
-            world_x = x * self.map_resolution + self.map_origin_x
+            world_x = x * self.map_resolution + self.map_origin_x   
             world_y = y * self.map_resolution + self.map_origin_y
 
             # spacing check
-            if self.is_too_close(world_x, world_y):
+            if self.is_too_close(world_x, world_y) or not self.node_valid(world_x, world_y):
                 self.known_map[y, x] = True
                 continue
 
@@ -296,7 +347,7 @@ class RoadmapBuilder(Node):
             world_x = x * self.map_resolution + self.map_origin_x
             world_y = y * self.map_resolution + self.map_origin_y
 
-            if self.is_too_close(world_x, world_y):
+            if self.is_too_close(world_x, world_y) or not self.node_valid(world_x, world_y):
                 self.known_map[y, x] = True
                 continue
 
@@ -328,11 +379,13 @@ class RoadmapBuilder(Node):
             for other, _ in candidates[:max_neighbors]:
                 already_connected = any((e1 is node and e2 is other) or (e1 is other and e2 is node) for (e1,e2) in self.edges_)
 
-                if not already_connected:
-                    node.neighbours.append(other)
-                    other.neighbours.append(node)
-                    self.edges_.append((node, other))
-                    new_edges.append((node, other))
+                if already_connected or not self.edge_valid(node.x, node.y, other.x, other.y):
+                    continue
+
+                node.neighbours.append(other)
+                other.neighbours.append(node)
+                self.edges_.append((node, other))
+                new_edges.append((node, other))
 
         return new_edges
 
@@ -345,7 +398,7 @@ class RoadmapBuilder(Node):
            - If full=True: publish a snapshot of all nodes+edges (limited to avoid RViz crash).
            - Otherwise publish only new_nodes/new_edges (incremental).
         """
-        
+
         if not self.nodes_:
             self.get_logger().info("No nodes to visualise yet.")
             return
@@ -436,21 +489,41 @@ class RoadmapBuilder(Node):
     # Timer wrapper
     # -------------------------
     def timer_callback(self):
+        """Main timer callback for incremental PRM growth and marker publishing."""
         # Incremental PRM growth near the robot
         # Always add node at robot position
         now_s = self.get_clock().now().seconds_nanoseconds()[0]
-        robot_node = self.add_node_at_robot_position()
+        # robot_node = self.add_node_at_robot_position()
+        rx, ry = self.current_pose_2d.x, self.current_pose_2d.y
         new_nodes = []
 
-        if robot_node:
-            new_nodes.append(robot_node)
+
+        ######## check if lingering #######
+        add_nodes = True
+        if hasattr(self, 'last_prm_robot_pos') and self.last_prm_robot_pos:
+                dist_moved = math.hypot(rx - self.last_prm_robot_pos[0], ry - self.last_prm_robot_pos[1])
+                if dist_moved < getattr(self, 'robot_stay_threshold', 1.0):  # same spot
+                    time_stationary = now_s - getattr(self, 'time_at_last_pos', now_s)
+                    if time_stationary < getattr(self, 'prm_pause_duration', 10):
+                        add_nodes = False  # skip adding nodes
+
+        if add_nodes:
+            self.add_node_at_robot_pos = (rx, ry)
+            self.time_at_last_pos = now_s
+
+            robot_node = self.add_node_at_robot_position()
+            if robot_node:
+                new_nodes.append(robot_node)
 
         # Incremental PRM growth near the robot
-        inc_nodes = self.roadmap_incremental()
+            inc_nodes = self.roadmap_incremental()
 
-        if inc_nodes:
-            new_nodes.extend(inc_nodes)
+            if inc_nodes:
+                new_nodes.extend(inc_nodes)
+        else:
+            self.prune_clumped_nodes(min_spacing=self.min_node_spacing*2.0)
 
+        ### connect nodes up
         new_edges = []
 
         if new_nodes:

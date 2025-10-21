@@ -5,7 +5,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 def generate_launch_description():
-    # Declare the 'use_sim_time' argument so ROS2 can find it
+    # Declare the 'use_sim_time' and 'use_path_planner' arguments
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     use_path_planner = LaunchConfiguration('use_path_planner', default='false')
     
@@ -29,13 +29,19 @@ def generate_launch_description():
         output='screen',
         parameters=[{'use_sim_time': use_sim_time}]
     )
+
+    # Launch the roadmap path node with remapping
     roadmap_path_node = Node(
         package='cave_explorer',
-        executable='roadmap_path',   
-        name='roadmap_path',
+        executable='roadmap_path',
+        name='roadmap_path_node',
         output='screen',
         parameters=[{'use_sim_time': use_sim_time}],
-        condition=IfCondition(use_path_planner)
+        condition=IfCondition(use_path_planner),
+        remappings=[
+            ('/odom', '/odometry'),   # remap to actual odometry
+            ('/cmd_vel_prm', '/cmd_vel')
+        ],
     )
 
     return LaunchDescription([
@@ -44,3 +50,4 @@ def generate_launch_description():
         roadmap_builder_node,
         roadmap_path_node
     ])
+

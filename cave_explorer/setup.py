@@ -36,7 +36,9 @@ setup(
     entry_points={
         'console_scripts': [
             'cave_explorer = cave_explorer.cave_explorer:main',
-            'roadmap_builder = cave_explorer.roadmap_builder:main',
+            'roadmap_builder = cave_explorer.roadmap_builder:main', #MR
+            'roadmap_path = cave_explorer.roadmap_path:main',  #MR
+            'graph_search = cave_explorer.graph_search:main',  #MR
 
         ],
     },
