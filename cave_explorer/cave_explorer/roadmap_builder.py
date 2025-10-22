@@ -212,7 +212,7 @@ class RoadmapBuilder(Node):
         self.incremental_samples_per_tick = 30
         self.incremental_sample_radius = 4.0   # meters around robot to sample
         self.min_node_spacing = 0.5           # meters minimum spacing between nodes
-        self.connection_radius = 4           # meters to attempt connecting nodes
+        self.connection_radius = 5           # meters to attempt connecting nodes
         self.publish_throttle_sec = 2.0        # don't publish more often than this
 
         self.node_buffer_distance = 1.0  # meters
@@ -571,7 +571,7 @@ class RoadmapBuilder(Node):
             if inc_nodes:
                 new_nodes.extend(inc_nodes)
         else:
-            self.prune_clumped_nodes(min_spacing=self.min_node_spacing*2.0)
+            self.prune_clumped_nodes(min_spacing=self.min_node_spacing*1.5, max_density=20)
 
         ### connect nodes up
         new_edges = []
