@@ -93,49 +93,97 @@ class PlannerType(Enum):
     FRONTIER_EXPLORATION = 6
     ARTIFACT_EXPLORATION = 7
 
+# ============================================
+# Artifact Record (Single Logical Artifact) - Perception 3
+# ============================================
+# Stores the fused world-coordinate estimate of a detected artifact.
+# Multiple YOLO detections belonging to the same object are merged
+# using confidence-weighted averaging, producing a smoothed & stable record.
 @dataclass
 class Artifact:
     """
-    Minimal world-coordinate artifact record.
+    Artifact record stored in map-frame coordinates.
 
-    We maintain:
-      - (x, y): fused position in map frame
-      - votes: {class_name: count} for majority voting
-      - n: total detections merged at this location
-      - last_update: timestamp for housekeeping
-    Fusion uses a lightweight EMA (alpha) to keep points stable.
+    Maintains:
+      - id: unique identifier
+      - cls: artifact class name (e.g. 'mushroom')
+      - x,y: estimated world/map position (smoothed)
+      - conf_avg: running average of detection confidence
+      - weight_sum: total accumulated confidence (for weighted averaging)
+      - n: total number of fused detections
+      - last_update: last time this artifact was updated (sec since epoch)
+      - time_examined: used by planner logic to determine revisit timeouts
+      - visited: flag used by exploration/planning logic
     """
-    id: int
-    cls: str   
-    x: float
-    y: float
-    conf_avg: float = 0.0
-    weight_sum: float = 0.0
-    #votes: dict = field(default_factory=dict)  # {cls_name: count}
-    n: int = 0                                  # total detections fused here
-    last_update: float = 0.0
-    time_examined: float = 0.0
-    visited: bool = False
 
+    # ---- Core identification ----
+    id: int                   # Unique artifact ID in global list
+    cls: str                  # Class name (from YOLO)
+
+    # ---- Fused world position (meters, map frame) ----
+    x: float                  # Smoothed/merged X position in map
+    y: float                  # Smoothed/merged Y position in map
+
+    # ---- Confidence fusion state ----
+    conf_avg: float = 0.0     # Smoothed (confidence-weighted) confidence estimate
+    weight_sum: float = 0.0   # Sum of all contributed confidence weights
+
+    # votes: dict = field(default_factory=dict)  # Example structure if later using majority voting
+
+    # ---- Fusion statistics & metadata ----
+    n: int = 0                # Total number of detections merged into this record
+    last_update: float = 0.0  # Timestamp of latest update (for aging / cleanup)
+    time_examined: float = 0.0  # Used by planner to throttle re-checking
+    visited: bool = False       # True if planner has already visited this artifact
+
+
+    # ============================================
+    # Fusion Update — merge a new detection into this artifact
+    # ============================================
     def add(self, x_new: float, y_new: float, conf_new: float):
         """
-        Update (x,y) and conf_avg using cumulative confidence-weighted averages.
+        Merge a new detection (position + confidence) into the running estimate.
+
+        Uses confidence-weighted averaging:
+          new_mean = (old_mean*w_prev + new_val*w_new) / (w_prev + w_new)
         """
+
+        # Pull current cumulative weight (total confidence sum so far)
         w_prev = self.weight_sum
+
+        # Clamp new confidence to non-negative float
         w_new  = max(0.0, float(conf_new))
+
+        # If the confidence is zero, skip update entirely
         if w_new == 0.0:
-            # No contribution if conf=0
             return
 
+        # Weighted update of X position
         self.x = (self.x * w_prev + x_new * w_new) / (w_prev + w_new)
+
+        # Weighted update of Y position
         self.y = (self.y * w_prev + y_new * w_new) / (w_prev + w_new)
+
+        # Weighted update of confidence
         self.conf_avg = (self.conf_avg * w_prev + conf_new * w_new) / (w_prev + w_new)
+
+        # Update total accumulated confidence weight
         self.weight_sum = w_prev + w_new
 
+        # Increment total observations merged
         self.n += 1
+
+        # Record timestamp of this update
         self.last_update = time.time()
 
+
+    # ============================================
+    # Export — provide a JSON-serializable dictionary
+    # ============================================
     def as_dict(self) -> dict:
+        """
+        Return a dictionary representation of this artifact suitable for JSON export.
+        """
         return {
             "id": self.id,
             "class": self.cls,
@@ -370,26 +418,40 @@ class CaveExplorer(Node):
 #############################################
 
     ### Perception 3 ###
+    # ============================================
+    # Intrinsics from SDF (derive fx, fy, cx, cy)
+    # ============================================
     def _set_intrinsics_from_sdf(self, img_w: int, img_h: int):
         """
         Compute camera intrinsics from SDF data using the *current* image resolution.
         Uses horizontal FOV from SDF and derives vertical FOV from aspect ratio.
         """
-        hfov = float(self.sdf_hfov_rad)
-        # Derive vfov from aspect ratio (matches your colleague's SDF approach)
+        hfov = float(self.sdf_hfov_rad)  # Horizontal field-of-view [radians] from parameters (SDF)
+
+        # Derive the vertical FOV from the current aspect ratio: vfov = 2 * atan( (H/W) * tan(hfov/2) )
         vfov = 2.0 * math.atan((img_h / img_w) * math.tan(hfov / 2.0))
 
+        # Focal length in pixels along x: fx = W / (2 * tan(hfov/2))
         fx = img_w / (2.0 * math.tan(hfov / 2.0))
+        # Focal length in pixels along y: fy = H / (2 * tan(vfov/2))
         fy = img_h / (2.0 * math.tan(vfov / 2.0))
+
+        # Principal point (cx, cy): image center, 0-based coordinates
         cx = (img_w - 1) * 0.5
         cy = (img_h - 1) * 0.5
 
+        # Store computed intrinsics on the instance for downstream use
         self.fx, self.fy, self.cx, self.cy = fx, fy, cx, cy
+
+        # Log the computed values for diagnostics
         self.get_logger().warn(
             f"[Intrinsics:SDF] w={img_w} h={img_h} hfov={hfov:.4f} rad "
             f"-> fx={fx:.1f} fy={fy:.1f} cx={cx:.1f} cy={cy:.1f}"
         )
 
+    # ============================================
+    # Upsert Artifact (merge or create)
+    # ============================================
     def _upsert_artifact(self, x: float, y: float, cls_name: str, conf: float):
         """
         Merge with the nearest EXISTING artifact of the SAME CLASS within self.merge_dist_m,
@@ -397,125 +459,257 @@ class CaveExplorer(Node):
 
         Returns the updated/created Artifact.
         """
-        # Find nearest artifact of the same class
-        best = None
-        best_d = 1e9
-        for a in self.artifacts:
-            if a.cls != cls_name:
+        # ---- Find nearest artifact of the same class ----
+        best = None               # Best (nearest) candidate artifact
+        best_d = 1e9              # Best distance so far (initialize large)
+        for a in self.artifacts:  # Iterate over existing artifacts
+            if a.cls != cls_name:     # Only consider same-class artifacts
                 continue
-            d = math.hypot(a.x - x, a.y - y)
-            if d < best_d:
+            d = math.hypot(a.x - x, a.y - y)  # Euclidean distance in map frame
+            if d < best_d:                     # Keep the closest one
                 best = a
                 best_d = d
 
+        # ---- Merge if close enough; else create new ----
         if best is not None and best_d <= self.merge_dist_m:
-            best.add(x, y, conf)
+            best.add(x, y, conf)  # Fuse detection into existing record (confidence-weighted)
             return best
         else:
-            # Create a new class-locked artifact
+            # Create a new artifact record initialized from this detection
             a = Artifact(
-                id=self.next_artifact_id,
-                cls=cls_name,
-                x=float(x),
-                y=float(y),
-                conf_avg=float(conf),
-                weight_sum=max(0.0, float(conf)),
-                n=1,
-                last_update=time.time(),
+                id=self.next_artifact_id,            # Assign next unique ID
+                cls=cls_name,                        # Class label/name
+                x=float(x),                          # Initial X in map frame
+                y=float(y),                          # Initial Y in map frame
+                conf_avg=float(conf),                # Initial average confidence
+                weight_sum=max(0.0, float(conf)),    # Initial weight (non-negative)
+                n=1,                                 # One detection merged so far
+                last_update=time.time(),             # Timestamp now
             )
-            self.next_artifact_id += 1
-            self.artifacts.append(a)
-            return a
-        
+            self.next_artifact_id += 1   # Bump ID counter for future artifacts
+            self.artifacts.append(a)     # Add to managed list
+            return a                     # Return the new record
+
+    # ============================================
+    # Persist artifacts to JSON (pretty, portable)
+    # ============================================
     def _persist_artifacts_json(self):
         """Write current artifact set to JSON (portable path, pretty)."""
+        # Build a simple dict with a list of per-artifact dicts for JSON dumping
         data = {"artifacts": [a.as_dict() for a in self.artifacts]}
         try:
+            # Open target JSON for write (overwrites each run for a clean snapshot)
             with open(self.artifact_json_path, "w") as f:
-                json.dump(data, f, indent=2)
+                json.dump(data, f, indent=2)  # Pretty-print with indent=2
         except Exception as e:
+            # Non-fatal: log a warning if persistence fails
             self.get_logger().warn(f"[Artifacts] Failed to persist JSON: {e}")
 
-
+    # ============================================
+    # Estimate Artifact Direction from Pixel (frame-safe)
+    # ============================================
     def estimate_artifact_direction(self, u: float, v: float, cam_frame: str):
         """
         From a pixel (u,v), compute:
         - ray_base: unit 3D look vector in base_link
         - dir_map_xy: unit 2D ground-plane direction in map frame
-        Uses intrinsics + the static TF (base_link <- cam_frame) + robot yaw from get_pose_2d().
+
+        Notes on frames:
+        - We construct the pixel ray in the *optical* convention (Z forward, X right, Y down).
+        - If TF provides an optical frame (e.g., camera_color_optical_frame), we use it directly.
+        - If TF only has a non-optical frame (e.g., camera_link: X forward, Y left, Z up),
+        we first rotate the ray from optical -> camera_link, then apply TF (base_link <- camera_link).
         """
-        # ---- 1) Pixel -> camera ray (optical frame: +Z forward, +X right, +Y down) ----
+
+        # ---- 1) Pixel -> Camera Ray (OPTICAL frame) ----
+        # Ensure intrinsics exist before converting pixel to normalized ray
         if not all([self.fx, self.fy, self.cx, self.cy]):
             self.get_logger().warn("[Artifacts] Missing intrinsics; cannot estimate direction.")
             return None, None
 
+        # Convert pixel (u,v) into normalized optical coordinates (x right, y down, z forward)
         x_cam = (u - self.cx) / self.fx
         y_cam = (v - self.cy) / self.fy
         z_cam = 1.0
-        nrm = math.sqrt(x_cam*x_cam + y_cam*y_cam + z_cam*z_cam)
-        ray_cam = np.array([x_cam/nrm, y_cam/nrm, z_cam/nrm], dtype=np.float32)
 
-        # ---- 2) Rotate camera ray into base_link using static extrinsics ----
-        # Default: identity if TF not available
-        R_base_cam = np.eye(3, dtype=np.float32)
+        # Normalize the 3D ray vector to unit length (still in OPTICAL frame)
+        nrm = math.sqrt(x_cam*x_cam + y_cam*y_cam + z_cam*z_cam)
+        ray_opt = np.array([x_cam/nrm, y_cam/nrm, z_cam/nrm], dtype=np.float32)
+
+        # ---- 2) Choose a TF frame that matches the ray's frame OR adapt the ray ----
+        # Prefer an optical frame in TF if available; otherwise use the provided cam_frame
+        # and apply the fixed optical->camera_link rotation first.
+        preferred_frame = None
         try:
-            # latest is fine (static)
-            T = self.tf_buffer.lookup_transform('base_link', cam_frame, rclpy.time.Time())
-            # Quaternion to rotation matrix
+            # If header is already an optical frame, use it directly
+            if cam_frame and cam_frame.endswith("optical_frame"):
+                preferred_frame = cam_frame
+            else:
+                # Try "<cam_frame>_optical_frame" (common naming)
+                maybe_opt = f"{cam_frame}_optical_frame" if cam_frame else None
+                if maybe_opt:
+                    # Test if TF knows this frame by trying a transform (won't throw if it exists)
+                    _ = self.tf_buffer.lookup_transform('base_link', maybe_opt, rclpy.time.Time())
+                    preferred_frame = maybe_opt
+        except Exception:
+            # No optical frame available in TF; we will fall back to cam_frame (non-optical)
+            preferred_frame = None
+
+        # Fixed rotation: optical -> camera_link (ROS REP 103)
+        # camera_link:  X forward,  Y left,   Z up
+        # optical:      X right,    Y down,   Z forward
+        # This matrix transforms a vector expressed in OPTICAL coords into CAMERA_LINK coords.
+        R_cam_from_opt = np.array([
+            [0.0,  0.0,  1.0],   # X_cam =  +Z_opt
+            [-1.0, 0.0,  0.0],   # Y_cam =  -X_opt
+            [0.0, -1.0,  0.0],   # Z_cam =  -Y_opt
+        ], dtype=np.float32)
+
+        # Decide which frame to look up in TF and what ray to rotate with it
+        if preferred_frame is not None:
+            # We'll ask TF for base_link <- <optical_frame>, so the ray stays in OPTICAL coords
+            tf_source_frame = preferred_frame
+            ray_for_tf = ray_opt  # already optical, matches the frame we query
+        else:
+            # We'll ask TF for base_link <- cam_frame (non-optical), so convert ray first
+            tf_source_frame = cam_frame
+            ray_for_tf = R_cam_from_opt @ ray_opt  # now expressed in camera_link coords
+
+        # ---- 3) Rotate ray into base_link using TF orientation ----
+        R_base_cam = np.eye(3, dtype=np.float32)  # default (identity) if TF fails
+        try:
+            # Lookup transform from chosen source (optical or camera_link) to base_link
+            T = self.tf_buffer.lookup_transform('base_link', tf_source_frame, rclpy.time.Time())
+
+            # Extract quaternion (base_link <- tf_source_frame)
             qw = T.transform.rotation.w
             qx = T.transform.rotation.x
             qy = T.transform.rotation.y
             qz = T.transform.rotation.z
-            # 3x3 rotation
+
+            # Convert quaternion to 3x3 rotation matrix (row-major)
             R_base_cam = np.array([
                 [1 - 2*(qy*qy + qz*qz),     2*(qx*qy - qz*qw),         2*(qx*qz + qy*qw)],
                 [2*(qx*qy + qz*qw),         1 - 2*(qx*qx + qz*qz),     2*(qy*qz - qx*qw)],
                 [2*(qx*qz - qy*qw),         2*(qy*qz + qx*qw),         1 - 2*(qx*qx + qy*qy)]
             ], dtype=np.float32)
         except Exception as e:
-            self.get_logger().warn(f"[Artifacts] Using identity R_base_cam; TF lookup failed: {e}")
+            self.get_logger().warn(f"[Artifacts] Using identity R_base_cam; TF lookup failed for '{tf_source_frame}': {e}")
 
-        ray_base = R_base_cam @ ray_cam  # 3D unit vector in base_link
+        # Rotate the ray (in tf_source_frame coords) into base_link
+        ray_base = R_base_cam @ ray_for_tf  # 3D unit vector in base_link
 
-        # ---- 3) Ground-plane projection in base_link, then rotate by robot yaw into map ----
-        # Project to XY (base_link frame has Z up)
+        # (Optional) Sanity check: if ray points strongly "backwards" in base_link (X<0), warn periodically.
+        # This helps catch misconfigured TF trees or missing optical->camera compensation.
+        if ray_base[0] < -0.1 and (getattr(self, "image_msgs_seen", 0) % 50 == 0):
+            self.get_logger().warn("[Artifacts] Ray points backward in base_link (X<0). Check camera TF/orientation.")
+
+        # ---- 4) Ground-plane Projection (base_link) -> Rotate by robot yaw into map ----
         vx, vy, vz = float(ray_base[0]), float(ray_base[1]), float(ray_base[2])
+
+        # Compute horizontal magnitude; ray too vertical -> invalid ground direction
         horiz_norm = math.hypot(vx, vy)
         if horiz_norm < 1e-6:
             self.get_logger().warn("[Artifacts] Ray nearly vertical; cannot form ground-plane direction.")
             return None, None
-        dir_base_xy = (vx / horiz_norm, vy / horiz_norm)  # unit on ground
 
-        # Rotate into map by robot yaw
+        # Unit ground-plane direction in base_link frame
+        dir_base_xy = (vx / horiz_norm, vy / horiz_norm)
+
+        # Retrieve robot pose (for yaw) to rotate base_link→map
         pose = self.get_pose_2d()
         if pose is None:
             return None, None
+
         c, s = math.cos(pose.theta), math.sin(pose.theta)
+
+        # Rotate ground direction into map frame by yaw
         dir_map_xy = (c*dir_base_xy[0] - s*dir_base_xy[1],
                     s*dir_base_xy[0] + c*dir_base_xy[1])
 
+        # Return both the 3D base ray and the 2D map-plane direction
         return (vx, vy, vz), dir_map_xy
-    
+
+    # ============================================
+    # Estimate Artifact Depth from Depth Image (robust)
+    # ============================================
     def estimate_artifact_depth(self, depth_img: np.ndarray, box_xyxy) -> float | None:
         """
-        Estimate range (meters) by taking the MEAN of all valid depth pixels inside the YOLO box.
-        Returns None if no valid pixels.
+        Estimate range (meters) by taking a robust MEAN of valid depth pixels inside the YOLO box.
+        Robustness improvements:
+        - Ignore non-finite values (NaN/Inf) and zeros.
+        - Remove statistical outliers via IQR filtering (Tukey fences).
+        - Fallback gracefully to median or raw mean if filtering becomes too aggressive.
+
+        Returns:
+        float depth in meters, or None if no usable pixels.
         """
+
+        # If no depth image available, nothing to estimate
         if depth_img is None:
             return None
+
+        # Get depth image dimensions (height, width)
         h, w = depth_img.shape[:2]
+
+        # Unpack and sanitize bounding box corners (clamp to image bounds)
         x1, y1, x2, y2 = [int(v) for v in box_xyxy]
         x1, y1 = max(0, x1), max(0, y1)
-        x2, y2 = min(w-1, x2), min(h-1, y2)
+        x2, y2 = min(w - 1, x2), min(h - 1, y2)
+
+        # Reject invalid/degenerate rectangles
         if x2 <= x1 or y2 <= y1:
             return None
 
-        patch = depth_img[y1:y2+1, x1:x2+1].reshape(-1)
+        # Extract the rectangular patch and flatten to a 1D array
+        patch = depth_img[y1:y2 + 1, x1:x2 + 1].reshape(-1)
+
+        # -------------------------------
+        # 1) Base validity filtering
+        # -------------------------------
+        # Keep only finite values (drop NaN/Inf)
         vals = patch[np.isfinite(patch)]
+        # Keep only strictly positive ranges (depth of 0.0 is invalid)
         vals = vals[vals > 0.0]
+
+        # If no valid pixels remain, return None
         if vals.size == 0:
             return None
-        return float(np.mean(vals))
+
+        # -------------------------------
+        # 2) Outlier rejection (IQR)
+        # -------------------------------
+        # Use Tukey fences with a configurable multiplier (k).
+        # k=1.5 is standard; k=2.0 is more forgiving. We'll use 1.5 by default.
+        k = 1.5
+
+        # Compute quartiles and IQR
+        q1, q3 = np.percentile(vals, [25.0, 75.0])
+        iqr = q3 - q1
+
+        # If IQR is ~0 (all values very similar), skip outlier filtering to avoid empty sets
+        if iqr > 0.0:
+            lo = q1 - k * iqr
+            hi = q3 + k * iqr
+            inliers = vals[(vals >= lo) & (vals <= hi)]
+        else:
+            inliers = vals  # data already tightly clustered
+
+        # If IQR filter was too aggressive and removed everything, fall back to percentile clipping
+        if inliers.size == 0:
+            # Clip extreme tails but retain some robustness
+            p_lo, p_hi = np.percentile(vals, [5.0, 95.0])
+            inliers = vals[(vals >= p_lo) & (vals <= p_hi)]
+
+        # If still empty (pathological case), fall back to the median as a single-point estimate
+        if inliers.size == 0:
+            return float(np.median(vals))
+
+        # -------------------------------
+        # 3) Final robust estimate
+        # -------------------------------
+        # Use the MEAN of inliers for a smooth, low-variance estimate.
+        return float(np.mean(inliers))
 
 
     def get_pose_2d(self):
@@ -548,166 +742,305 @@ class CaveExplorer(Node):
 
         return pose
     
+    # ============================================
+    # Localise artifacts (pixel -> map position) — robust back-projection
+    # ============================================
     def localise_artifact(self):
         """
         New localisation pipeline:
         - Direction = f(pixel, intrinsics, base<-cam extrinsics, robot yaw)
-        - Distance  = mean depth inside full box
-        - Position  = (robot_xy + Rz(theta)*t_base_cam_xy) + d_horiz * dir_map_xy
+        - Distance  = robust depth from an INNER crop of the box (if enabled/available)
+        - Position  = back-project pixel -> 3D point in camera, transform to base_link, then to map.
         Notes:
-        - d_horiz projects the 3D range onto the ground plane using the ray's Z in base_link.
+        - Using pinhole back-projection with camera Z-depth is more geometrically faithful than
+        approximating horizontal distance with d_horiz = d * sqrt(1 - vz^2).
         - Requires: intrinsics, camera_frame_id, latest_depth (if depth localisation is enabled).
         """
+        # Bail out if we have no fresh detections to process
         if not self.latest_detections:
             return
+
+        # Intrinsics are required to convert pixels to rays / back-project points
         if not all([self.fx, self.fy, self.cx, self.cy]):
             self.get_logger().warn("[Artifacts] Missing intrinsics.")
             return
+
+        # If depth-based localisation is enabled, ensure we actually have a depth frame
         if self.use_depth_for_localisation and self.latest_depth is None:
             self.get_logger().warn("[Artifacts] No depth image yet.")
             return
 
-        # Determine the camera frame to use (must match your URDF/tf)
+        # --------------------------------------------
+        # Choose camera frame name (prefer explicit header order, fall back to default)
+        # --------------------------------------------
         cam_frame = (self.camera_frame_id or
                     (self.last_depth_header.frame_id if self.last_depth_header else None) or
                     (self.last_image_header.frame_id if self.last_image_header else None) or
                     'camera_link')
 
-        # Robot pose (in map)
-        pose = self.get_pose_2d()
+        # --------------------------------------------
+        # Get robot 2D pose (in map frame) to rotate/translate camera position
+        # --------------------------------------------
+        pose = self.get_pose_2d()  # returns Pose2D (x, y, theta)
         if pose is None:
             return
-        c, s = math.cos(pose.theta), math.sin(pose.theta)
+        c, s = math.cos(pose.theta), math.sin(pose.theta)  # precompute yaw trig terms
 
-        # Camera translation wrt base_link (use TF; static)
-        t_base_cam = np.zeros(3, dtype=np.float32)
+        # --------------------------------------------
+        # Camera extrinsics relative to base_link (from TF)
+        # --------------------------------------------
+        t_base_cam = np.zeros(3, dtype=np.float32)  # default to zero translation
+        R_base_cam = np.eye(3, dtype=np.float32)    # default rotation (identity) if TF fails
         try:
+            # Lookup transform: base_link <- cam_frame
             T = self.tf_buffer.lookup_transform('base_link', cam_frame, rclpy.time.Time())
+            # Translation
             t_base_cam[:] = np.array([
                 T.transform.translation.x,
                 T.transform.translation.y,
                 T.transform.translation.z
             ], dtype=np.float32)
+            # Rotation (quaternion -> 3x3)
+            qw = T.transform.rotation.w
+            qx = T.transform.rotation.x
+            qy = T.transform.rotation.y
+            qz = T.transform.rotation.z
+            R_base_cam = np.array([
+                [1 - 2*(qy*qy + qz*qz),     2*(qx*qy - qz*qw),         2*(qx*qz + qy*qw)],
+                [2*(qx*qy + qz*qw),         1 - 2*(qx*qx + qz*qz),     2*(qy*qz - qx*qw)],
+                [2*(qx*qz - qy*qw),         2*(qy*qz + qx*qw),         1 - 2*(qx*qx + qy*qy)]
+            ], dtype=np.float32)
         except Exception as e:
-            self.get_logger().warn(f"[Artifacts] No base_link->camera static TF; assuming camera at base_link. {e}")
+            # If TF is absent, assume camera is colocated and aligned with base_link (less accurate but safe)
+            self.get_logger().warn(f"[Artifacts] No/partial base_link->camera TF; assuming identity rotation and/or zero translation. {e}")
 
-        # Camera position in map (XY only)
+        # --------------------------------------------
+        # Camera position in map frame (XY only)
+        # cam_map = robot_xy + Rz(yaw) * t_base_cam_xy
+        # --------------------------------------------
         cam_map_x = pose.x + (c * float(t_base_cam[0]) - s * float(t_base_cam[1]))
         cam_map_y = pose.y + (s * float(t_base_cam[0]) + c * float(t_base_cam[1]))
 
-        updates = 0
+        updates = 0  # count how many artifacts we update/create this pass
 
+        # --------------------------------------------
+        # Iterate over latest detections and localise each one
+        # --------------------------------------------
         for det in self.latest_detections:
+            # Unpack detection box (x1,y1,x2,y2) in pixel coords
             x1, y1, x2, y2 = det["xyxy"]
+
+            # Use box center (u, v) for direction AND for back-projection
             u = 0.5 * (x1 + x2)
             v = 0.5 * (y1 + y2)
 
-            # 1) Direction
+            # 1) Direction: pixel -> base_link 3D ray; then ground-plane unit direction in map
+            #    (still useful as a fallback and for sanity checks)
             ray_base, dir_map_xy = self.estimate_artifact_direction(u, v, cam_frame)
             if ray_base is None or dir_map_xy is None:
+                # Skip if direction cannot be established (e.g., missing TF/intrinsics)
                 continue
-            vz = ray_base[2]  # base_link Z component
 
-            # 2) Distance (mean depth over the full box)
+            # 2) Distance / 3D point:
+            #    Prefer robust depth from an INNER crop; fall back to old path if no depth.
             if self.use_depth_for_localisation:
-                d = self.estimate_artifact_depth(self.latest_depth, [x1, y1, x2, y2])
+                # Compute a tighter inner crop (e.g., 50% of bbox size centered) to avoid box-edge contamination
+                shrink = 0.5  # 0.5 → inner 50% box; tune 0.4–0.7 as needed
+                bw = (x2 - x1); bh = (y2 - y1)
+                cx = 0.5 * (x1 + x2); cy = 0.5 * (y1 + y2)
+                ix1 = int(round(cx - 0.5 * shrink * bw))
+                iy1 = int(round(cy - 0.5 * shrink * bh))
+                ix2 = int(round(cx + 0.5 * shrink * bw))
+                iy2 = int(round(cy + 0.5 * shrink * bh))
+
+                # Estimate robust depth (meters) from the inner crop
+                d = self.estimate_artifact_depth(self.latest_depth, [ix1, iy1, ix2, iy2])
             else:
-                d = 2.0  # fallback heuristic if no depth by design
+                d = None
+
+            # Fallback heuristic if depth is disabled or invalid
             if d is None or not np.isfinite(d) or d <= 0.0:
-                continue
+                # Previous behavior: approximate horizontal distance from direction + heuristic depth
+                # Convert 3D range along the ray to horizontal ground distance using its Z
+                vz = float(ray_base[2])
+                horiz_scale = math.sqrt(max(1e-12, 1.0 - vz*vz))  # numerical safety clamp
+                d_horiz = 2.0 * horiz_scale  # 2.0 m heuristic if depth unavailable
+                px_map = cam_map_x + d_horiz * dir_map_xy[0]
+                py_map = cam_map_y + d_horiz * dir_map_xy[1]
+            else:
+                # ---------- Robust back-projection path (preferred) ----------
+                # Interpret d as camera Z-depth (typical for RGB-D): point_cam = [ (u-cx)/fx * d, (v-cy)/fy * d, d ]
+                Xc = (u - self.cx) / self.fx * d
+                Yc = (v - self.cy) / self.fy * d
+                Zc = d
+                p_cam = np.array([Xc, Yc, Zc], dtype=np.float32)
 
-            # Convert 3D range along ray to horizontal ground distance
-            # If ray is perfectly horizontal (vz≈0), this is ~d
-            horiz_scale = math.sqrt(max(1e-12, 1.0 - float(vz)*float(vz)))  # clamp for safety
-            d_horiz = d * horiz_scale
+                # Transform to base_link: p_base = R_base_cam * p_cam + t_base_cam
+                p_base = (R_base_cam @ p_cam) + t_base_cam
 
-            # 3) Position in map
-            px_map = cam_map_x + d_horiz * dir_map_xy[0]
-            py_map = cam_map_y + d_horiz * dir_map_xy[1]
+                # Simple sanity: if point is significantly behind base_link X (< -0.1 m), skip this detection
+                if p_base[0] < -0.1:
+                    # This should not usually happen; indicates TF/camera pose issues
+                    continue
 
-            # Class name
+                # Rotate XY from base_link into map using robot yaw, then translate by robot (x,y)
+                px_map = pose.x + (c * float(p_base[0]) - s * float(p_base[1]))
+                py_map = pose.y + (s * float(p_base[0]) + c * float(p_base[1]))
+
+            # Resolve class name from id; fall back to a generic tag if out of bounds
             cls_id = det.get("cls", -1)
             cls_name = (self.class_names[cls_id]
                         if (isinstance(cls_id, int) and 0 <= cls_id < len(self.class_names))
                         else f"class_{cls_id}")
-            conf = float(det.get("conf", 0.5))  # default if model didn't supply
+
+            # Confidence defaults to 0.5 if not provided by the detector
+            conf = float(det.get("conf", 0.5))
+
+            # Merge into existing artifact (same class, within merge radius) or create a new one
             self._upsert_artifact(float(px_map), float(py_map), cls_name, conf)
-            
+
+            # Count successful localisation
             updates += 1
 
+        # --------------------------------------------
+        # Persist & visualize if we updated anything
+        # --------------------------------------------
         if updates > 0:
-            self._persist_artifacts_json()
-            self.publish_artifact_markers()
+            self._persist_artifacts_json()  # dump artifacts to JSON file
+            self.publish_artifact_markers() # publish RViz markers
 
+    # ============================================
+    # Publish artifact markers (spheres + labels)
+    # ============================================
     def publish_artifact_markers(self):
         """
         Publish all saved artifact estimates as:
         - a SPHERE_LIST in 'map' frame
         - one TEXT_VIEW_FACING label per artifact showing majority class and count
         """
-        from std_msgs.msg import ColorRGBA
+        from std_msgs.msg import ColorRGBA  # local import keeps global namespace lean
 
-        points, colors, texts = [], [], []
+        # --------------------------------------------
+        # Accumulate geometry & labels for current artifacts
+        # --------------------------------------------
+        points, colors, texts = [], [], []  # lists for sphere positions, per-point colors, and label tuples
 
         for a in self.artifacts:
+            # Create a 3D point at artifact (x,y) with a fixed Z for visibility
             p = Point(x=float(a.x), y=float(a.y), z=1.0)
             points.append(p)
+
+            # Prepare label text: "<class>#<id> (n=<observations>)"
             texts.append((p, f"{a.cls}#{a.id} (n={a.n})", a.id))
 
-            # deterministic color per class
+            # Deterministic pseudo-color per class using hash; keeps a stable color per class across runs
             h = (hash(a.cls) % 255) / 255.0
             r = 0.1 + 0.2 * h
             g = 0.7 + 0.2 * (1.0 - h)
             b = 0.2 + 0.2 * (0.5 - abs(0.5 - h))
             colors.append(ColorRGBA(r=float(r), g=float(g), b=float(b), a=1.0))
 
+        # MarkerArray to bundle DELETEALL + sphere list + text labels
         marr = MarkerArray()
 
+        # --------------------------------------------
+        # Clear previous markers so updates don't accumulate stale visuals
+        # --------------------------------------------
         delete_all = Marker()
-        delete_all.action = Marker.DELETEALL
+        delete_all.action = Marker.DELETEALL  # special action to clear all in this namespace
         marr.markers.append(delete_all)
 
+        # --------------------------------------------
+        # Sphere list marker (positions + optional per-point colors)
+        # --------------------------------------------
+        # Stamp header (frame + time)
         self.marker_artifacts_.header.stamp = self.get_clock().now().to_msg()
+        # Assign current points (spheres)
         self.marker_artifacts_.points = points
+        # Assign per-point colors if available and sized correctly; otherwise leave empty
         self.marker_artifacts_.colors = colors if len(colors) == len(points) else []
+        # Append to the array
         marr.markers.append(self.marker_artifacts_)
 
-        text_id_base = 10000
+        # --------------------------------------------
+        # Text labels: one TEXT_VIEW_FACING per artifact with its class/id and count
+        # --------------------------------------------
+        text_id_base = 10000  # keep IDs distinct from the sphere_list marker
         for p, txt, aid in texts:
             m = Marker()
-            m.header.frame_id = "map"
-            m.header.stamp = self.marker_artifacts_.header.stamp
-            m.ns = "artifact_labels"
-            m.id = text_id_base + int(aid)
-            m.type = Marker.TEXT_VIEW_FACING
-            m.action = Marker.ADD
-            m.pose.position.x = p.x; m.pose.position.y = p.y; m.pose.position.z = p.z + 0.8
+            m.header.frame_id = "map"                              # render in map frame
+            m.header.stamp = self.marker_artifacts_.header.stamp   # same timestamp as spheres
+            m.ns = "artifact_labels"                               # separate namespace for labels
+            m.id = text_id_base + int(aid)                         # stable, unique ID per artifact
+            m.type = Marker.TEXT_VIEW_FACING                       # billboard text faces the viewer
+            m.action = Marker.ADD                                  # add/update
+            # Position label slightly above the sphere for readability
+            m.pose.position.x = p.x
+            m.pose.position.y = p.y
+            m.pose.position.z = p.z + 0.8
+            # Text height (meters in RViz)
             m.scale.z = 0.8
-            m.color.a = 1.0; m.color.r = 1.0; m.color.g = 1.0; m.color.b = 1.0
+            # White text, fully opaque
+            m.color.a = 1.0
+            m.color.r = 1.0
+            m.color.g = 1.0
+            m.color.b = 1.0
+            # The actual string to display
             m.text = txt
+            # Queue into the MarkerArray
             marr.markers.append(m)
 
+        # --------------------------------------------
+        # Publish the bundle (RViz will handle replacement based on IDs)
+        # --------------------------------------------
         self.marker_pub_.publish(marr)
 
 ##########################################
 ##### ----- Callback Functions ----- #####
 ##########################################
 
+    # ============================================
+    # Depth image callback (store and normalize)
+    # ============================================
     def depth_callback(self, msg: Image):
+        """
+        Receive and store the latest depth image.
+        Converts depth to float32 meters and caches dimensions + header.
+        If depth localisation is enabled, also records the camera frame ID.
+        """
+
+        # Convert ROS depth Image -> numpy array.
+        # 'passthrough' preserves original encoding (16UC1 or 32FC1).
         depth = self.cv_bridge_.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+
+        # If conversion failed or message was empty, clear cached state.
         if depth is None:
             self.latest_depth = None
             self.last_depth_header = None
             return
+
+        # If depth is uint16 (typical from RealSense etc.), convert mm -> meters.
         if depth.dtype == np.uint16:
-            depth = depth.astype(np.float32) * 0.001  # mm -> m
+            depth = depth.astype(np.float32) * 0.001  # convert millimetres to meters
+
+        # If it's neither uint16 nor float32 (e.g., float64), coerce to float32 meters.
         elif depth.dtype != np.float32:
             depth = depth.astype(np.float32)
+
+        # Cache the latest usable depth image (float32, meters)
         self.latest_depth = depth
+
+        # Save its dimensions for RGB/depth consistency checks
         self.depth_h, self.depth_w = depth.shape[:2]
+
+        # Cache header for timestamp/frame tracking
         self.last_depth_header = msg.header
+
+        # If we plan to localise artifacts using depth, we also capture the camera frame ID.
+        # (This frame is later used for TF lookup to get base_link-relative pose.)
         if self.use_depth_for_localisation:
             self.camera_frame_id = (msg.header.frame_id or self.camera_frame_id)
+
 
     def map_callback(self, map_msg: OccupancyGrid):
         """New map received, so update x and y limits"""
@@ -726,46 +1059,62 @@ class CaveExplorer(Node):
         self.latest_map_ = map_msg
         self.path_planner.latest_map_ = map_msg  #forward map to PathPlanner
 
+    # ============================================
+    # RGB image callback (YOLO + HUD + localisation trigger)
+    # ============================================
     def image_callback(self, image_msg):
-        # Count frames
+        # --------------------------------------------
+        # Count incoming RGB frames for diagnostics
+        # --------------------------------------------
         self.image_msgs_seen += 1
-        if self.image_msgs_seen % 10 == 0:
+        if self.image_msgs_seen % 10 == 0:  # log every 10th frame to avoid spam
             self.get_logger().info(f"[image] frames seen: {self.image_msgs_seen}")
 
-        # Decode with correct encoding
+        # --------------------------------------------
+        # Decode ROS Image into OpenCV RGB/BGR format
+        # --------------------------------------------
         enc = (image_msg.encoding or '').lower()
         try:
-            if enc in ('rgb8', 'rgba8'):
+            if enc in ('rgb8', 'rgba8'):  # If already RGB-formatted
                 rgb = self.cv_bridge_.imgmsg_to_cv2(image_msg, desired_encoding='rgb8')
-                bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-            else:
+                bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)  # For OpenCV drawing
+            else:  # If raw, assume BGR
                 bgr = self.cv_bridge_.imgmsg_to_cv2(image_msg, desired_encoding='bgr8')
-                rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+                rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)  # Convert for YOLO
         except Exception as e:
             self.get_logger().error(f"cv_bridge conversion error: {e}")
             return
-        
-        # Ensure intrinsics are set from SDF as soon as we know the stream size
+
+        # --------------------------------------------
+        # Initialise intrinsics ASAP once size known
+        # --------------------------------------------
         if self.use_sdf_intrinsics and (self.fx is None or self.fy is None):
             h, w = rgb.shape[:2]
-            self._set_intrinsics_from_sdf(w, h)
+            self._set_intrinsics_from_sdf(w, h)  # compute fx, fy, cx, cy
             self.camera_frame_id = image_msg.header.frame_id or "camera_link"
 
-        # Depth/RGB size check when using per-pixel depth
+        # --------------------------------------------
+        # Validate depth/RGB size consistency (required for pixel-wise depth use)
+        # --------------------------------------------
         if self.use_depth_for_localisation and self.latest_depth is not None:
             h_rgb, w_rgb = rgb.shape[:2]
             if (self.depth_h, self.depth_w) != (h_rgb, w_rgb):
+                # Warn periodically, do not flood console
                 if self.image_msgs_seen % 15 == 0:
                     self.get_logger().warn(
-                        f"[Depth] Size mismatch: rgb=({w_rgb}x{h_rgb}) depth=({self.depth_w}x{self.depth_h}); skipping localisation this frame."
+                        f"[Depth] Size mismatch: rgb=({w_rgb}x{h_rgb}) "
+                        f"depth=({self.depth_w}x{self.depth_h}); skipping localisation this frame."
                     )
                 self.artifact_found_ = False
                 return
 
+        # Prepare a copy of the frame for drawing boxes and HUD overlay
         annotated = bgr.copy()
         detections, num_boxes = [], 0
 
-        # --- YOLO inference ---
+        # --------------------------------------------
+        # YOLO inference (detect artifacts in RGB image)
+        # --------------------------------------------
         hud_text = "YOLO: off"
         try:
             if self.yolo_model is not None:
@@ -775,24 +1124,43 @@ class CaveExplorer(Node):
                     iou=self.yolo_iou,
                     imgsz=self.yolo_imgsz,
                     verbose=False,
-                    device='cpu',   # switch to 'cpu' if required or keep 'cuda:0'
+                    device='cpu',   # use 'cuda:0' if GPU available
                     classes=self.allowed_class_ids if self.allowed_class_ids else None
                 )
+                # Validate inference result
                 if results and len(results) > 0 and getattr(results[0], 'boxes', None) is not None:
                     res = results[0]
                     num_boxes = len(res.boxes)
                     for box in res.boxes:
+                        # Extract bounding box + metadata
                         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int).tolist()
                         cls_id = int(box.cls[0].item()) if box.cls is not None else -1
                         conf = float(box.conf[0].item()) if box.conf is not None else 0.0
+
+                        # Resolve class name either from parameter list or model names
                         name = (self.class_names[cls_id] if 0 <= cls_id < len(self.class_names)
                                 else (self.yolo_model.names.get(cls_id, f"class_{cls_id}")
                                     if hasattr(self.yolo_model, 'names') else f"class_{cls_id}"))
+
+                        # Draw bounding box and label on copy
                         cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                        cv2.putText(annotated, f"{name} {conf:.2f}", (x1, max(0, y1 - 7)),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
-                        detections.append({"xyxy":[x1,y1,x2,y2], "cls":cls_id, "conf":conf,
-                                        "stamp": image_msg.header.stamp})
+                        cv2.putText(annotated,
+                                    f"{name} {conf:.2f}",
+                                    (x1, max(0, y1 - 7)),
+                                    cv2.FONT_HERSHEY_SIMPLEX,
+                                    0.5,
+                                    (0, 255, 0),
+                                    1,
+                                    cv2.LINE_AA)
+
+                        # Append to list of structured detections for planner/localisation
+                        detections.append({
+                            "xyxy": [x1, y1, x2, y2],
+                            "cls": cls_id,
+                            "conf": conf,
+                            "stamp": image_msg.header.stamp
+                        })
+
                     hud_text = f"YOLO: {num_boxes} boxes"
                 else:
                     hud_text = "YOLO: 0 boxes"
@@ -802,28 +1170,46 @@ class CaveExplorer(Node):
             self.get_logger().error(f"YOLO predict error: {e}")
             hud_text = "YOLO: error"
 
-        # Planner flags
+        # Store detections for next stage (localisation)
         self.latest_detections = detections
 
-        # HUD
-        cv2.putText(annotated, hud_text, (8, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2, cv2.LINE_AA)
-        cv2.putText(annotated, f"conf={self.yolo_conf:.2f}, img={self.yolo_imgsz}", (8, 40),
+        # --------------------------------------------
+        # Draw HUD text overlay on annotated image
+        # --------------------------------------------
+        cv2.putText(annotated, hud_text,
+                    (8, 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2, cv2.LINE_AA)
+        cv2.putText(annotated,
+                    f"conf={self.yolo_conf:.2f}, img={self.yolo_imgsz}",
+                    (8, 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1, cv2.LINE_AA)
 
-        # Publish overlay
+        # --------------------------------------------
+        # Publish annotated image back to ROS
+        # --------------------------------------------
         out_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
         msg_out = self.cv_bridge_.cv2_to_imgmsg(out_rgb, encoding="rgb8")
         msg_out.header = image_msg.header
         self.image_detections_pub_.publish(msg_out)
 
+        # Cache header for fallback cam_frame selection
         self.last_image_header = image_msg.header
 
-        ready_to_localise = (self.fx is not None and self.fy is not None and self.cx is not None and self.cy is not None) and \
-                    (self.latest_depth is not None or not self.use_depth_for_localisation)
+        # --------------------------------------------
+        # Determine readiness for localisation pass
+        # --------------------------------------------
+        ready_to_localise = (
+            self.fx is not None and self.fy is not None and self.cx is not None and self.cy is not None
+        ) and (
+            self.latest_depth is not None or not self.use_depth_for_localisation
+        )
 
+        # Artifact flag used by planner logic
         self.artifact_found_ = (len(detections) > 0) and ready_to_localise
 
-        # Uncomment to run localisation on every frame once ready:
+        # --------------------------------------------
+        # If ready, run localisation now; else log why not
+        # --------------------------------------------
         if ready_to_localise:
             self.localise_artifact()
         else:
@@ -832,6 +1218,7 @@ class CaveExplorer(Node):
                     self.get_logger().warn("Waiting for SDF intrinsics.")
                 if self.use_depth_for_localisation and self.latest_depth is None:
                     self.get_logger().warn("Waiting for depth frames…")
+
 
     def goal_response_callback(self, future):
         """The requested goal pose has been sent to the action server"""
