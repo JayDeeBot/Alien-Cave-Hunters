@@ -313,15 +313,10 @@ class CaveExplorer(Node):
         self.last_image_header = None
         self.camera_frame_id = None  # Set from image header
 
-        # Subscribe to depth image
-        self.depth_sub_ = self.create_subscription(
-            Image, 'camera/depth/image', self.depth_callback, sensor_qos
-        )
-
         # --- Perception 3: simple artifacts store ---
         self.artifacts: list[Artifact] = []
         self.next_artifact_id = 1
-        self.merge_dist_m = 15.0  # meters; detections within this distance are merged
+        self.merge_dist_m = 20.0  # meters; detections within this distance are merged
 
         # Portable path: <this_file_dir>/artifact_detections/detections.json
         self.artifact_json_path = (Path(__file__).resolve().parent
@@ -348,6 +343,11 @@ class CaveExplorer(Node):
         self.map_sub_ = self.create_subscription(OccupancyGrid, 'map',  self.map_callback, 1)
         self.image_sub_ = self.create_subscription(Image, 'camera/image', self.image_callback, sensor_qos)
         self.depth_sub_ = self.create_subscription(Image, 'camera/depth/image', self.depth_callback, sensor_qos)
+
+        # Subscribe to depth image
+        self.depth_sub_ = self.create_subscription(
+            Image, 'camera/depth/image', self.depth_callback, sensor_qos
+        )
 
         # Timer for main loop
         self.main_loop_timer_ = self.create_timer(0.2, self.main_loop)
