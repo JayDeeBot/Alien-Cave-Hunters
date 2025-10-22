@@ -8,6 +8,13 @@ from visualization_msgs.msg import Marker, MarkerArray
 import numpy as np
 import math, time, heapq
 from cave_explorer.roadmap_builder import RoadmapBuilder
+from enum import Enum
+
+class PlannerType(Enum):
+    PRM_EXPLORATION = 1
+    FRONTIER_EXPLORATION = 2
+    ARTIFACT_EXPLORATION = 3
+
 
 # -----------------------------
 # Helper Class: RoadmapPath
@@ -96,7 +103,7 @@ class RoadmapPath:
         origin = self.latest_map_.info.origin.position
 
         frontiers = []
-        OCC_THRESHOLD = 50  # occupied cell threshold
+        OCC_THRESHOLD = 100  # occupied cell threshold
 
         for y in range(1, height-1):
             for x in range(1, width-1):
@@ -229,6 +236,22 @@ class RoadmapPath:
         x_proj = prev_node.x + t*dx
         y_proj = prev_node.y + t*dy
         return Pose2D(x=x_proj, y=y_proj, theta=0.0)
+    # -----------------------------
+    # Artifact detection (dummy)
+    # -----------------------------
+    def dummy_artifact_check(self):
+        # For testing, return None (no artifact) or a mock object
+        class DummyArtifact:
+            def __init__(self):
+                self.id = 0
+                self.x = 1.0
+                self.y = 1.0
+                self.time_examined = 0.0
+
+        # Example: return None if no artifact detected
+        return None
+
+        # Or return DummyArtifact() to simulate finding one
 
 
     
@@ -242,23 +265,41 @@ class RoadmapPath:
             path_completed = True
             return cmd, path_completed
 
-        
+        if self.current_pose is None:
+            return cmd, False
 
         #target node is next to path
         target_node = self.current_path_nodes[self.current_path_index]
         prev_node = self.current_path_nodes[self.current_path_index - 1] if self.current_path_index > 0 else target_node
 
-     
-
         # Project robot onto edge between prev_node and target_node
         projected_pose = self.project_onto_edge(prev_node, target_node)
 
-        if projected_pose is None:
-            projected_pose = Pose2D(x=target_node.x, y=target_node.y, theta=0.0)
+        # if projected_pose is None:
+        #     projected_pose = Pose2D(x=target_node.x, y=target_node.y, theta=0.0)
 
+        if projected_pose is None or math.isnan(projected_pose.x) or math.isnan(projected_pose.y):
+            return Twist(), False
+    
         cmd = self.move_toward(projected_pose)
 
-        
+        # Stop if dangerously close to a wall 
+        if self.latest_map_ is not None:
+            map_data = np.array(self.latest_map_.data)
+            occ_threshold = 70
+            wx, wy = projected_pose.x, projected_pose.y
+            ox, oy = self.latest_map_.info.origin.position.x, self.latest_map_.info.origin.position.y
+            res = self.latest_map_.info.resolution
+            mx = int((wx - ox) / res)
+            my = int((wy - oy) / res)
+            width = self.latest_map_.info.width
+            height = self.latest_map_.info.height
+
+            if 0 <= mx < width and 0 <= my < height:
+                if map_data[my * width + mx] > occ_threshold:
+                    # Too close to obstacle — stop instead of crashing
+                    return Twist(), False
+
         # Check if reached next node
         edge_length = math.hypot(projected_pose.x - self.current_pose.x,
                                 projected_pose.y - self.current_pose.y)
@@ -354,20 +395,32 @@ class RoadmapPathNode(Node):
     def timer_callback(self):
         if self.planner.current_pose is None:
             return
+ 
 
+        # -----------------------------
+        # Always use PRM exploration
+        # -----------------------------
+        self.planner_type_ = PlannerType.PRM_EXPLORATION
+
+        # -----------------------------
+        # 1. Follow PRM path
+        # -----------------------------
         path_finished = (not self.planner.current_path_nodes or
                         self.planner.current_path_index >= len(self.planner.current_path_nodes))
+        
+        self.cmd_pub.publish(cmd)
 
+        # -----------------------------
+        # 2. Plan new PRM path if finished
+        # -----------------------------
         if path_finished:
-            # Find frontiers
             frontiers = self.planner.find_frontiers()
             goal = self.planner.choose_frontier(frontiers, self.planner.current_pose)
 
             if goal:
-                # Ensure PRM has a node at robot position
+                # Ensure robot is on roadmap
                 robot_node = self.planner.get_nearest_node(self.planner.current_pose.x, self.planner.current_pose.y)
                 if robot_node is None:
-                    # create temporary node at robot
                     robot_node = type('GraphNode', (), {})()
                     robot_node.x = self.planner.current_pose.x
                     robot_node.y = self.planner.current_pose.y
@@ -376,44 +429,38 @@ class RoadmapPathNode(Node):
                     self.planner.roadmap.nodes_.append(robot_node)
 
                 nearest_node = self.planner.get_nearest_node(goal.x, goal.y)
-                if robot_node is None or self.planner.get_nearest_node(self.planner.current_pose.x, self.planner.current_pose.y) is None:
-                    self.get_logger().warn("[PRM] Robot not on roadmap — waiting for PRM expansion.")
-                    self.cmd_pub.publish(Twist())
-                    return
-
                 if nearest_node is not None:
                     success = self.planner.plan_path_to_goal(nearest_node.x, nearest_node.y)
                     if not success:
                         self.get_logger().warn("[WARN] Failed to plan PRM path")
+                        self.cmd_pub.publish(Twist())
+                        return
                 else:
-                    # fallback: move directly toward goal
-                    # cmd = self.planner.move_toward(goal)
-                    # self.cmd_pub.publish(cmd)
                     self.get_logger().warn("[PRM] No reachable PRM node near goal — waiting for roadmap expansion.")
                     self.cmd_pub.publish(Twist())
                     return
             else:
                 self.get_logger().warn("[WARN] No frontier to explore")
-                self.cmd_pub.publish(Twist())  # stop if nothing to explore
+                self.cmd_pub.publish(Twist())
                 return
 
-        # Follow path if available
+        # -----------------------------
+        # 3. Re-project and follow path
+        # -----------------------------
         cmd, completed = self.planner.follow_prm_path()
         if cmd:
-        # re-project robot onto PRM every few cycles
             if self.planner.current_path_nodes:
                 i = self.planner.current_path_index
                 if i < len(self.planner.current_path_nodes):
                     node_a = self.planner.current_path_nodes[max(0, i - 1)]
                     node_b = self.planner.current_path_nodes[i]
                     projected = self.planner.project_onto_edge(node_a, node_b)
-
-                    # Snap robot path target to projected position
-                    cmd = self.planner.move_toward(projected)
-                    
+                    if projected is not None:
+                        cmd = self.planner.move_toward(projected)
             self.cmd_pub.publish(cmd)
         else:
-            self.cmd_pub.publish(Twist())  # stop if path exhausted
+            self.cmd_pub.publish(Twist())
+
 # -----------------------------
 # Main
 # -----------------------------

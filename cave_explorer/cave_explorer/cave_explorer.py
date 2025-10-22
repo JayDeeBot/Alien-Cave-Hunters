@@ -910,29 +910,49 @@ class CaveExplorer(Node):
             #######################################################
             #Set planner type
             artfiact_result = self.dummy_artifact_check()
-            if artfiact_result != None:
-                self.get_logger().info("Found artiact")
-                if artfiact_result.time_examined < self.artifact_timeout:
-                    self.planner_type_ = PlannerType.ARTIFACT_EXPLORATION
-                else:
-                    self.planner_type_ = PlannerType.FRONTIER_EXPLORATION 
+            ########### toggle prm #######
+            if artfiact_result is not None and artfiact_result.time_examined < self.artifact_timeout:
+                self.planner_type_ = PlannerType.ARTIFACT_EXPLORATION
+            elif hasattr(self.path_planner, 'latest_map_') and self.path_planner.latest_map_ is not None:
+                self.planner_type_ = PlannerType.PRM_EXPLORATION
             else:
                 self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
+            ############################## to replace below
 
-            self.get_logger().info(f'Calling planner: {self.planner_type_.name}')
+            # if artfiact_result != None:
+            #     self.get_logger().info("Found artiact")
+            #     if artfiact_result.time_examined < self.artifact_timeout:
+            #         self.planner_type_ = PlannerType.ARTIFACT_EXPLORATION
+            #     else:
+            #         self.planner_type_ = PlannerType.FRONTIER_EXPLORATION 
+            # else:
+            #     self.planner_type_ = PlannerType.FRONTIER_EXPLORATION
+
+            # self.get_logger().info(f'Calling planner: {self.planner_type_.name}')
 
             #######################################################
             #Execute Planner
+            
+
             if self.planner_type_ == PlannerType.FRONTIER_EXPLORATION:
                 if hasattr(self.path_planner, 'latest_map_') and self.path_planner.latest_map_ is not None:
                     self.path_planner.frontier_exploration_step()
                 else:
                     self.get_logger().warn('No map received yet. Cannot perform frontier exploration.')
-            elif self.planner_type_ == PlannerType.ARTIFACT_EXPLORATION:
-                    self.get_logger().info(f"Mvoing to artfact, it has id: {artfiact_result.id}, it has pose x: {artfiact_result.x}, y: {artfiact_result.y}")
-                    self.path_planner.artifact_exploration_step(artfiact_result)
-            else:
-                self.get_logger().error('No valid planner selected')
+            
+            ##########toggle prm ###############
+            elif self.planner_type_ == PlannerType.PRM_EXPLORATION:
+                if hasattr(self.path_planner, 'latest_map_') and self.path_planner.latest_map_ is not None:
+                    self.path_planner.prm_exploration_step()
+                else:
+                    self.get_logger().warn("[PRM] No map available — skipping PRM step.")
+
+            ############################# to replace below
+            # elif self.planner_type_ == PlannerType.ARTIFACT_EXPLORATION:
+            #         self.get_logger().info(f"Mvoing to artfact, it has id: {artfiact_result.id}, it has pose x: {artfiact_result.x}, y: {artfiact_result.y}")
+            #         self.path_planner.artifact_exploration_step(artfiact_result)
+            # else:
+            #     self.get_logger().error('No valid planner selected')
 
     
 def main():
@@ -940,3 +960,13 @@ def main():
     cave_explorer = CaveExplorer()
     while rclpy.ok():
         rclpy.spin(cave_explorer)
+
+    ###### toggle prm ##############
+    try:
+        while rclpy.ok():
+            rclpy.spin_once(cave_explorer)
+            time.sleep(0.05)  # 20 Hz loop
+    finally:
+        cave_explorer.destroy_node()
+        rclpy.shutdown()
+    ################
