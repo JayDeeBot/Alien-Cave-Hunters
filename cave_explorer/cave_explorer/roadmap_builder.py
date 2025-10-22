@@ -79,11 +79,11 @@ class RoadmapBuilder(Node):
     # -------------------------
     def edge_valid(self, x1, y1, x2, y2, step=0.05, clearance=None):
         """Return True if straight line from (x1,y1) to (x2,y2) does not cross occupied map cells."""
+        
         if self.map_data is None:
             return True
 
         clearance = clearance or self.min_node_spacing # minimum clearance from obstacles
-
         dist = math.hypot(x2 - x1, y2 - y1)
         steps = max(1, int(dist / step))
 
@@ -95,16 +95,26 @@ class RoadmapBuilder(Node):
             #convert to map coords
             mx, my = self.world_to_map(x, y)
 
-            buffer_cells = max(1, int((clearance * 1.0) / self.map_resolution)) # buffer around edge
+            # if not (0 <= mx < self.map_data.shape[1] and 0 <= my < self.map_data.shape[0]):
+            #     return False  # out-of-bounds is invalid
+
+
+            buffer_cells = max(1, int((clearance / self.map_resolution))) # buffer around edge
 
             x0 = max(0, mx - buffer_cells)
             x1 = min(self.map_data.shape[1], mx + buffer_cells + 1)
             y0 = max(0, my - buffer_cells)
             y1 = min(self.map_data.shape[0], my + buffer_cells + 1)
 
-            local = self.map_data[y0:y1, x0:x1]
-            if np.any(local > 50):  # occupied threshold
+            # Only block if the cell is known AND occupied
+            local_known = self.known_map[y0:y1, x0:x1]
+            local_data = self.map_data[y0:y1, x0:x1]
+
+            if np.any(local_known & (local_data > 100)):
+                print(f"Blocked edge from ({x1:.2f},{y1:.2f}) → ({x2:.2f},{y2:.2f})")
+
                 return False
+            
             # if not (0 <= mx < self.map_data.shape[1] and 0 <= my < self.map_data.shape[0]):
             #     return False
             # if self.map_data[my, mx] > 50:  # occupied threshold
@@ -179,15 +189,15 @@ class RoadmapBuilder(Node):
             node.idx = idx
             node.neighbours = [n for n in node.neighbours if n in valid_nodes_set]
 
-        # Log result
-        try:
-            self.get_logger().info(
-                f"[PRUNE] Removed {old_count - new_count} clumped nodes (kept {new_count}), "
-                f"min_spacing={min_spacing:.2f} m, max_density={max_density}"
-            )
-        except Exception:
-            # fallback if this object isn't a Node (defensive)
-            print(f"[PRUNE] Removed {old_count - new_count} clumped nodes (kept {new_count})")
+        # # Log result
+        # try:
+        #     self.get_logger().info(
+        #         f"[PRUNE] Removed {old_count - new_count} clumped nodes (kept {new_count}), "
+        #         f"min_spacing={min_spacing:.2f} m, max_density={max_density}"
+        #     )
+        # except Exception:
+        #     # fallback if this object isn't a Node (defensive)
+        #     print(f"[PRUNE] Removed {old_count - new_count} clumped nodes (kept {new_count})")
 
 
     def __init__(self):
@@ -215,7 +225,7 @@ class RoadmapBuilder(Node):
         self.connection_radius = 5           # meters to attempt connecting nodes
         self.publish_throttle_sec = 2.0        # don't publish more often than this
 
-        self.node_buffer_distance = 1.0  # meters
+        self.node_buffer_distance = 1.1  # meters
 
         # QoS + publishers/subscribers
         qos = QoSProfile(depth=10,
