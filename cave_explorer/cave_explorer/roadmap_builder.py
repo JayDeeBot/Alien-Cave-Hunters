@@ -110,7 +110,7 @@ class RoadmapBuilder(Node):
             local_known = self.known_map[y0:y1, x0:x1]
             local_data = self.map_data[y0:y1, x0:x1]
 
-            if np.any(local_known & (local_data > 100)):
+            if np.any(local_known & (local_data > 50)):
                 print(f"Blocked edge from ({x1:.2f},{y1:.2f}) → ({x2:.2f},{y2:.2f})")
 
                 return False
@@ -468,7 +468,7 @@ class RoadmapBuilder(Node):
 
         if full:
             # full publish (used initially). Limit total markers to avoid crashing RViz.
-            max_markers = 1200  # max total markers (nodes + edges)
+            max_markers = 5000  # max total markers (nodes + edges)
 
             # create node markers (but sample if too many)
             nodes_list = self.nodes_    # make a copy

@@ -15,11 +15,11 @@ def generate_launch_description():
         description='Use simulation (Gazebo) clock if true'
     )
 
-    declare_use_path_planner = DeclareLaunchArgument(
-        'use_path_planner',
-        default_value='false',
-        description='Launch the PRM-integrated path planner node if true'
-    )
+    # declare_use_path_planner = DeclareLaunchArgument(
+    #     'use_path_planner',
+    #     default_value='false',
+    #     description='Launch the PRM-integrated path planner node if true'
+    # )
 
     # Launch the roadmap builder node
     roadmap_builder_node = Node(
@@ -30,24 +30,24 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}]
     )
 
-    # Launch the roadmap path node with remapping
-    roadmap_path_node = Node(
-        package='cave_explorer',
-        executable='roadmap_path',
-        name='roadmap_path_node',
-        output='screen',
-        parameters=[{'use_sim_time': use_sim_time}],
-        condition=IfCondition(use_path_planner),
-        remappings=[
-            ('/odom', '/odometry'),   # remap to actual odometry
-            ('/cmd_vel_prm', '/cmd_vel')
-        ],
-    )
+    # # Launch the roadmap path node with remapping
+    # roadmap_path_node = Node(
+    #     package='cave_explorer',
+    #     executable='roadmap_path',
+    #     name='roadmap_path_node',
+    #     output='screen',
+    #     parameters=[{'use_sim_time': use_sim_time}],
+    #     condition=IfCondition(use_path_planner),
+    #     remappings=[
+    #         ('/odom', '/odometry'),   # remap to actual odometry
+    #         ('/cmd_vel_prm', '/cmd_vel')
+    #     ],
+    # )
 
     return LaunchDescription([
         declare_use_sim_time,
-        declare_use_path_planner,
+        # declare_use_path_planner,
         roadmap_builder_node,
-        roadmap_path_node
+        # roadmap_path_node
     ])
 
