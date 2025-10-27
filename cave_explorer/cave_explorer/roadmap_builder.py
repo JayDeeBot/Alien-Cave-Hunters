@@ -135,7 +135,7 @@ class RoadmapBuilder(Node):
         if self.map_data[my, mx] > 50:  # occupied
             return False
         return True
-
+    
     def local_node_density(self, x, y, radius=None):
         radius = radius or self.min_node_spacing * 2
         count = 0
@@ -143,61 +143,118 @@ class RoadmapBuilder(Node):
             if math.hypot(node.x - x, node.y - y) < radius:
                 count += 1
         return count
+
+
+    def reassess_density(self):
+        """Adaptive PRM node redistribution based on continuous local density."""
+        if len(self.nodes_) < 50 or self.map_data is None:
+            return
+
+        self.get_logger().info(f"[REDISTRIBUTE] Checking local node densities across {len(self.nodes_)} nodes...")
+
+        # dense nodes
+        local_r = self.min_node_spacing * 1.5
+        density_threshold = 10  # nodes within radius considered "too dense"
+
+        dense_nodes = []
+        for node in self.nodes_:
+            local_density = self.local_node_density(node.x, node.y, radius=local_r)
+            if local_density > density_threshold:
+                dense_nodes.append(node)
+
+        if not dense_nodes:
+            self.get_logger().info("[REDISTRIBUTE] No over-dense clusters detected.")
+            return
+
+        # Remove roughly half of nodes from dense clusters
+        to_remove = random.sample(dense_nodes, k=max(1, len(dense_nodes) // 2))
+        removed_set = set(to_remove)
+
+        before = len(self.nodes_)
+        self.nodes_ = [n for n in self.nodes_ if n not in removed_set]
+        self.edges_ = [(a, b) for (a, b) in self.edges_ if a not in removed_set and b not in removed_set]
+
+        for idx, node in enumerate(self.nodes_):
+            node.idx = idx
+            node.neighbours = [n for n in node.neighbours if n not in removed_set]
+
+        pruned = before - len(self.nodes_)
+        self.get_logger().info(f"[REDISTRIBUTE] Pruned {pruned} locally dense nodes.")
+
+        # Find low-density sample candidates in the free space
+        add_count = min(100, pruned + 20)
+        candidates = self.create_prm(num_nodes=add_count)
+        self.connect_nearby_nodes(radius=self.connection_radius, nodes_to_check=candidates)
+
+        self.get_logger().info(
+            f"[REDISTRIBUTE] Added {len(candidates)} redistributed nodes to sparser regions."
+        )
+
+        # counter reset
+        self.nodes_since_last_reassess = 0
+
     
-    def prune_clumped_nodes(self, radius=4.0, max_density=10, min_spacing=None):
+    
+    def prune_clumped_nodes(self, cell_size=2.0, max_density=10, min_spacing=None):
         """
-        Remove nodes that are excessively clumped together to reduce computational load.
+        Spatial pruning across the *whole map*.
+        Removes excess nodes from map regions (cells) that are too dense.
 
         Parameters:
-        radius (float)      : used for optional spatial checks (kept for backwards compat)
-        max_density (int)   : maximum allowed number of nodes inside min_spacing radius (inclusive)
-        min_spacing (float) : radius (m) used to compute local density; if None, uses
-                                a multiple of self.min_node_spacing.
+            cell_size (float): Width/height of a pruning grid cell (in meters).
+            max_density_per_cell (int): Maximum nodes allowed per cell before pruning.
+            local_min_spacing (float): Minimum distance between nodes (optional).
         """
-        if min_spacing is None:
-            # Use a slightly larger radius for pruning than regular min spacing
-            min_spacing = max(self.min_node_spacing * 2.0, 0.5) # at least 0.5 m
-
         if not self.nodes_:
             return
 
-        removed_indices = set()
+        if min_spacing is None:
+            min_spacing = self.min_node_spacing * 1.5
 
-        # First pass: mark nodes outside the valid map or with too-high local density
-        for i, node in enumerate(self.nodes_):
-            # remove nodes outside the map
-            if not self.node_valid(node.x, node.y):
-                removed_indices.add(i)
+        # 1. Create a dictionary of cells and their nodes
+        cell_nodes = {}
+        for node in self.nodes_:
+            cx = int((node.x - self.map_origin_x) // cell_size)
+            cy = int((node.y - self.map_origin_y) // cell_size)
+            cell_nodes.setdefault((cx, cy), []).append(node)
+
+        removed_nodes = set()
+
+        # 2. Check each cell for density
+        for (cell, nodes) in cell_nodes.items():
+            if len(nodes) > max_density:
+                # Randomly sample which nodes to keep
+                keep = random.sample(nodes, max_density)
+                to_remove = [n for n in nodes if n not in keep]
+                removed_nodes.update(to_remove)
+
+        # 3. Local fine-pruning (remove any too-close nodes)
+        for i, n1 in enumerate(self.nodes_):
+            if n1 in removed_nodes:
                 continue
+            for n2 in self.nodes_[i+1:]:
+                if n2 in removed_nodes:
+                    continue
+                if math.hypot(n1.x - n2.x, n1.y - n2.y) < min_spacing:
+                    removed_nodes.add(n2)
 
-            # compute local density (number of nodes within min_spacing)
-            density = self.local_node_density(node.x, node.y, radius=min_spacing)
-            if density > max_density:
-                removed_indices.add(i)
-
+        # 4. Apply pruning
         old_count = len(self.nodes_)
-        # keep only nodes not marked for removal
-        self.nodes_ = [n for idx, n in enumerate(self.nodes_) if idx not in removed_indices]
-        new_count = len(self.nodes_)
+        self.nodes_ = [n for n in self.nodes_ if n not in removed_nodes]
 
-        # Filter edges to only those connecting remaining nodes
-        self.edges_ = [(n1, n2) for (n1, n2) in self.edges_ if n1 in self.nodes_ and n2 in self.nodes_]
+        # 5. Clean edges
+        self.edges_ = [(a, b) for (a, b) in self.edges_ if a not in removed_nodes and b not in removed_nodes]
 
-        # Re-index nodes and clean up neighbour lists
-        valid_nodes_set = set(self.nodes_)  # objects are hashable by id; this is fine
+        # 6. Re-index nodes and clean neighbours
         for idx, node in enumerate(self.nodes_):
             node.idx = idx
-            node.neighbours = [n for n in node.neighbours if n in valid_nodes_set]
+            node.neighbours = [n for n in node.neighbours if n not in removed_nodes]
 
-        # # Log result
-        # try:
-        #     self.get_logger().info(
-        #         f"[PRUNE] Removed {old_count - new_count} clumped nodes (kept {new_count}), "
-        #         f"min_spacing={min_spacing:.2f} m, max_density={max_density}"
-        #     )
-        # except Exception:
-        #     # fallback if this object isn't a Node (defensive)
-        #     print(f"[PRUNE] Removed {old_count - new_count} clumped nodes (kept {new_count})")
+        # 7. Log the result
+        self.get_logger().info(
+            f"[PRUNE] Removed {old_count - len(self.nodes_)} nodes ({len(self.nodes_)} remaining) "
+            f"using cell-based pruning (cell_size={cell_size:.2f} m, max_density={max_density})"
+        )
 
 
     def __init__(self):
@@ -221,9 +278,13 @@ class RoadmapBuilder(Node):
         self.initial_prm_nodes = 200        # initial PRM size
         self.incremental_samples_per_tick = 30
         self.incremental_sample_radius = 4.0   # meters around robot to sample
-        self.min_node_spacing = 0.5           # meters minimum spacing between nodes
+        self.min_node_spacing = 1           # meters minimum spacing between nodes
         self.connection_radius = 5           # meters to attempt connecting nodes
         self.publish_throttle_sec = 2.0        # don't publish more often than this
+
+        self.nodes_since_last_reassess = 0
+        self.reassess_interval = 40  # or whatever threshold you want before reassessing
+
 
         self.node_buffer_distance = 1.1  # meters
 
@@ -310,36 +371,49 @@ class RoadmapBuilder(Node):
         mx_r, my_r = self.world_to_map(rx, ry)
 
         # Score each pixel by local openness and proximity to robot
-        openness_radius = 6  # pixels
-        openness_scores = []
-        proximity_scores = []
+        open_radius = 6  # pixels
+        open_scores = []
+        prox_scores = []
 
         for (y, x) in free_pixels:
-            y0 = max(0, y - openness_radius)    # top
-            y1 = min(height, y + openness_radius + 1)   # bottom
-            x0 = max(0, x - openness_radius)    # left
-            x1 = min(width, x + openness_radius + 1)   # right
+            y0 = max(0, y - open_radius)    # top
+            y1 = min(height, y + open_radius + 1)   # bottom
+            x0 = max(0, x - open_radius)    # left
+            x1 = min(width, x + open_radius + 1)   # right
 
             local = self.map_data[y0:y1, x0:x1]
+
+            #cave spaciousness
             free_count = np.sum((local >= 0) & (local <= 50))
-            openness_scores.append(free_count)
+            total_count = local.size
+            spacious = free_count / total_count
 
-            # Proximity: closer to robot = higher score
+            # closer to robot = higher 
             dist = math.hypot(x - mx_r, y - my_r)
-            proximity_scores.append(dist)
 
-        scores = np.array(openness_scores)
-        prox = np.array(proximity_scores)
+            open_scores.append(spacious)
+            prox_scores.append(dist)
+
+        open_scores = np.array(open_scores)
+        prox_scores = np.array(prox_scores)
 
         # Invert and normalize scores for sampling probability
             # Lower openness = tighter space, so sample more nodes there
             # Closer to robot = higher probability, but not exclusively
             # blend: 60% proximity, 40% tightness
+        
+        norm_open = (open_scores - open_scores.min()) / (open_scores.max() - open_scores.min() + 1e-6)
+        norm_prox = (prox_scores.max() - prox_scores) / (prox_scores.max() + 1e-6)
+        
+        # (open areas get exponentially penalized)
+        inverse_open = np.exp(-3.0 * norm_open)
 
-        norm_openness = (scores.max() - scores + 1)
-        norm_prox = (prox.max() - prox + 1)
-        blend = 0.6 * norm_prox + 0.4 * norm_openness
+        # 60% robot prox,40% space tightness
+        blend = 0.6 * norm_prox + 0.4 * inverse_open
+
+        # normalise
         prob = blend / blend.sum()
+
         chosen_indices = np.random.choice(len(free_pixels), size=min(num_nodes, len(free_pixels)), replace=False, p=prob)
         chosen = free_pixels[chosen_indices]
 
@@ -597,6 +671,12 @@ class RoadmapBuilder(Node):
         if (now_s - self._last_publish_time) >= self.publish_throttle_sec:
             self.publish_markers(new_nodes=new_nodes, new_edges=new_edges, full=False)
             self._last_publish_time = now_s
+
+        # iterative density check
+        self.nodes_since_last_reassess += len(new_nodes)
+        if self.nodes_since_last_reassess >= self.reassess_interval:
+            self.reassess_density()
+
 
 def main(args=None):
     rclpy.init(args=args)
